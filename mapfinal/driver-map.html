@@ -84,6 +84,15 @@
       </button>
     </div>
 
+    <!-- TRIP TYPE MODE SELECTION -->
+    <div class="controls-sep"></div>
+    <span class="step-label">Trip Type</span>
+    <div class="trip-type-row">
+      <button class="btn btn-outline" id="tripTypeToClicked" onclick="console.log('To clicked'); setTripType('to_campus')" type="button">To Campus</button>
+      <button class="btn btn-outline" id="tripTypeFromClicked" onclick="console.log('From clicked'); setTripType('from_campus')" type="button">From Campus</button>
+    </div>
+    <div class="trip-type-note" id="tripTypeNote">Pick up passengers from various locations heading TO campus.</div>
+
     <!-- FIND PASSENGERS — always visible, unlocks when location is ready -->
     <div class="controls-sep"></div>
     <span class="step-label" id="stepAction">Find Passengers</span>
@@ -264,3 +273,4 @@
   
 <script src="driver-map.js"></script></body>
 </html>
+

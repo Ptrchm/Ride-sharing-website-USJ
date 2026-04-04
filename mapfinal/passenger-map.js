@@ -5,6 +5,7 @@
     ===================================================================== */
     const CAMPUS_LAT = 33.8654840;
     const CAMPUS_LNG = 35.5631210;
+    const CAMPUS = { lat: CAMPUS_LAT, lng: CAMPUS_LNG };
     const OSRM_BASE  = 'https://router.project-osrm.org/route/v1/driving';
     const REQUEST_STORAGE_KEY = 'usj-rideshare-driver-requests';
     const PASSENGER_VISIBILITY_KEY = 'usj-rideshare-passenger-visibility';
@@ -26,6 +27,90 @@
       { id: 'driver-e', fullName: 'Lara Akl',      phone: '+96170991005', carName: 'Hyundai Elantra', licensePlate: 'K 119406', lat: 33.9100,   lng: 35.5600,   arrivalTime: '09:20' },
       { id: 'driver-f', fullName: 'Charbel Azar',  phone: '+96170991006', carName: 'Mazda 3',         licensePlate: 'S 883257', lat: 33.879583, lng: 35.559944, arrivalTime: '09:40' },
     ];
+
+    // Students at campus wanting to go to various destinations (not fixed to their homes)
+    // These are ride providers who happen to be students and are going various places
+    const STUDENTS_AT_CAMPUS = [
+      { id: 'student-1',  fullName: 'Hani Kabbani',     phone: '+96170222333', carName: 'Kia Picanto',    licensePlate: 'M 321445', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Downtown Beirut', arrivalTime: '14:00' },
+      { id: 'student-2',  fullName: 'Dina Mansour',     phone: '+96170222334', carName: 'Honda Jazz',     licensePlate: 'N 556789', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Hamra Street', arrivalTime: '15:30' },
+      { id: 'student-3',  fullName: 'Fadi Harb',        phone: '+96170222335', carName: 'Nissan Tiida',    licensePlate: 'P 223344', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Achrafieh', arrivalTime: '14:45' },
+      { id: 'student-4',  fullName: 'Lara Moussa',      phone: '+96170222336', carName: 'Chevrolet Spark', licensePlate: 'R 445566', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Verdun', arrivalTime: '15:00' },
+      { id: 'student-5',  fullName: 'Khalil Khalil',    phone: '+96170222337', carName: 'Hyundai i10',     licensePlate: 'S 778899', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Gemmayze', arrivalTime: '16:00' },
+      { id: 'student-6',  fullName: 'Rima Stephan',     phone: '+96170222338', carName: 'Suzuki Alto',     licensePlate: 'T 112233', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Mar Mikhael', arrivalTime: '14:30' },
+      { id: 'student-7',  fullName: 'Tamim Sayah',      phone: '+96170222339', carName: 'Toyota Yaris',    licensePlate: 'U 334455', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Antelias', arrivalTime: '15:45' },
+      { id: 'student-8',  fullName: 'Nadia Fares',      phone: '+96170222340', carName: 'Ford Figo',       licensePlate: 'V 556677', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Jounieh', arrivalTime: '16:30' },
+      { id: 'student-9',  fullName: 'Wessam Rahhal',    phone: '+96170222341', carName: 'Datsun Go',       licensePlate: 'W 778899', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Byblos', arrivalTime: '15:15' },
+      { id: 'student-10', fullName: 'Maya Sarkis',      phone: '+96170222342', carName: 'Renault Kwid',    licensePlate: 'X 990011', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Dbayeh', arrivalTime: '14:00' },
+      { id: 'student-11', fullName: 'Karim Abboud',     phone: '+96170222343', carName: 'Tata Nano',       licensePlate: 'Y 223344', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Kaslik', arrivalTime: '15:20' },
+      { id: 'student-12', fullName: 'Zahra Daher',      phone: '+96170222344', carName: 'Maruti Swift',    licensePlate: 'Z 445566', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Airport', arrivalTime: '16:15' },
+    ];
+
+    // Destination coordinates for students' destinations
+    const STUDENT_DESTINATIONS = {
+      'Downtown Beirut': { lat: 33.8695, lng: 35.5470 },
+      'Hamra Street': { lat: 33.8705, lng: 35.5510 },
+      'Achrafieh': { lat: 33.8660, lng: 35.5485 },
+      'Verdun': { lat: 33.8650, lng: 35.5400 },
+      'Gemmayze': { lat: 33.8720, lng: 35.5430 },
+      'Mar Mikhael': { lat: 33.8635, lng: 35.5525 },
+      'Antelias': { lat: 33.9000, lng: 35.5460 },
+      'Jounieh': { lat: 33.8300, lng: 35.5450 },
+      'Byblos': { lat: 33.8680, lng: 35.5900 },
+      'Dbayeh': { lat: 33.8680, lng: 35.5000 },
+      'Kaslik': { lat: 33.8950, lng: 35.5700 },
+      'Airport': { lat: 33.8450, lng: 35.5750 },
+    };
+
+    /* =====================================================================
+       TRIP TYPE STATE & HANDLERS
+    ===================================================================== */
+    let tripType = 'to_campus'; // 'to_campus' or 'from_campus'
+
+    function setTripType(type) {
+      tripType = type === 'to_campus' ? 'to_campus' : 'from_campus';
+      
+      // Update button UI
+      document.getElementById('tripTypeToClicked')?.classList.toggle('active', tripType === 'to_campus');
+      document.getElementById('tripTypeFromClicked')?.classList.toggle('active', tripType === 'from_campus');
+      
+      // Update note
+      const noteText = tripType === 'to_campus' 
+        ? 'You will be picked up from your location and taken to campus.'
+        : 'You will be picked up from campus and taken to your chosen location.';
+      document.getElementById('tripTypeNote').textContent = noteText;
+    }
+
+    function getProvidersForTripType() {
+      // Returns the list of available ride providers based on trip type
+      // "to_campus" mode: Regular DRIVERS (going to campus)
+      // "from_campus" mode: STUDENTS_AT_CAMPUS (going to various destinations from campus)
+      if (tripType === 'from_campus') {
+        return STUDENTS_AT_CAMPUS.map(student => {
+          const destCoords = STUDENT_DESTINATIONS[student.destination];
+          return {
+            ...student,
+            // Students have their own destinations (like drivers)
+            destinationLat: destCoords.lat,
+            destinationLng: destCoords.lng,
+            lat: CAMPUS_LAT,
+            lng: CAMPUS_LNG,
+            isStudent: true,
+          };
+        });
+      }
+      // Default: to_campus mode uses DRIVERS going to campus
+      return DRIVERS_DATA.map(d => ({ ...d, isStudent: false }));
+    }
+
+    function getDestinationForTripType() {
+      // Returns the final destination based on trip type
+      if (tripType === 'from_campus') {
+        // In from_campus mode, return to user's manually set location
+        return { lat: passengerLat, lng: passengerLng };
+      }
+      // In to_campus mode, destination is always campus
+      return { lat: CAMPUS_LAT, lng: CAMPUS_LNG };
+    }
 
     /* =====================================================================
        COLLAPSE/EXPAND PANEL FUNCTIONS
@@ -1425,7 +1510,10 @@ function distToPolyline(lat, lng, poly) {
           allCoords.push(...normalizedRide.coords);
         }
 
-        for (const dr of DRIVERS_DATA) {
+        const providers = getProvidersForTripType();
+        const destination = getDestinationForTripType();
+
+        for (const dr of providers) {
           if (signal.aborted) break;
           if (publishedDriverIds.has(dr.id)) continue;
           try {
@@ -1434,22 +1522,35 @@ function distToPolyline(lat, lng, poly) {
               `<div class="driver-tooltip">${dr.fullName}</div>`,
               { permanent: false, direction: 'top', opacity: 0.93 }
             );
-            const res  = await fetch(
-              `${OSRM_BASE}/${dr.lng},${dr.lat};${CAMPUS_LNG},${CAMPUS_LAT}?overview=full&geometries=geojson`,
-              { signal }
-            );
+            
+            // Get provider's actual destination
+            let providerDestinat;
+            if (tripType === 'from_campus') {
+              providerDestinat = { lat: dr.destinationLat, lng: dr.destinationLng };
+            } else {
+              providerDestinat = CAMPUS;
+            }
+            
+            const osrmUrl = `${OSRM_BASE}/${dr.lng},${dr.lat};${providerDestinat.lng},${providerDestinat.lat}?overview=full&geometries=geojson`;
+            console.log(`[${tripType}] OSRM request for ${dr.fullName}:`, osrmUrl);
+            const res  = await fetch(osrmUrl, { signal });
             if (!res.ok) continue;
             const data = await res.json();
             if (!data.routes?.length) continue;
-            const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            const durMin = data.routes[0].duration / 60;
-            driverRoutes.push({ ...dr, coords, durMin, marker });
+            const route = data.routes[0];
+            const durMin = route.duration / 60;
+            const distKm = route.distance / 1000;
+            console.log(`[${tripType}] OSRM response for ${dr.fullName}: ${distKm.toFixed(1)}km in ${durMin.toFixed(1)}min (${(distKm / durMin * 60).toFixed(1)} km/h)`);
+            const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+            driverRoutes.push({ ...dr, coords, durMin, distanceKm: distKm, marker, providerDestinat });
             allCoords.push(...coords);
             const line = L.polyline(coords, { color: '#0072bb', weight: 4, opacity: 0.70 }).addTo(map);
             line.bindPopup(`<strong style="font-family:Inter,sans-serif">${dr.fullName}</strong>`);
             driverLines.push(line);
             await new Promise(r => setTimeout(r, 50));
-          } catch { /* skip driver on fetch / parse error */ }
+          } catch (e) {
+            console.error(`Error loading route for ${dr.fullName}:`, e);
+          }
         }
         if (signal.aborted) { btnLoading('btnFindRide', false); return; }
         if (!driverRoutes.length) {
@@ -1470,7 +1571,7 @@ for (const dr of driverRoutes) {
   if (!Array.isArray(coords) || coords.length < 2) continue;
 
   // Direct route baseline
-  const directDurationMin = dr.durationMin;
+  const directDurationMin = dr.durMin;
   const directDistanceKm = dr.distanceKm ?? null; // if published ride contains distance
   let baselineDistanceKm = directDistanceKm;
 
@@ -1506,11 +1607,23 @@ for (const dr of driverRoutes) {
 
   try {
     const last = coords[coords.length - 1];
-    const pickupUrl =
-      `${OSRM_BASE}/${dr.coords[0][1]},${dr.coords[0][0]};` +
-      `${passengerLng},${passengerLat};` +
-      `${last[1]},${last[0]}?overview=false&geometries=geojson`;
+    let pickupUrl;
+    
+    if (tripType === 'to_campus') {
+      // to_campus: driver → passenger → campus
+      pickupUrl =
+        `${OSRM_BASE}/${dr.coords[0][1]},${dr.coords[0][0]};` +
+        `${passengerLng},${passengerLat};` +
+        `${last[1]},${last[0]}?overview=false&geometries=geojson`;
+    } else {
+      // from_campus: campus → passenger location → provider's destination
+      pickupUrl =
+        `${OSRM_BASE}/${CAMPUS.lng},${CAMPUS.lat};` +
+        `${passengerLng},${passengerLat};` +
+        `${dr.providerDestinat.lng},${dr.providerDestinat.lat}?overview=false&geometries=geojson`;
+    }
 
+    console.log(`[${tripType}] Pickup detour for ${dr.fullName}: baseline=${baselineDistanceKm.toFixed(1)}km/${directDurationMin.toFixed(1)}min`);
     const pickupRes = await fetch(pickupUrl, { signal });
 
     if (pickupRes.ok) {
@@ -1535,9 +1648,11 @@ for (const dr of driverRoutes) {
             ((pickupDistance - baselineDistanceKm) / baselineDistanceKm) * 100
           );
         }
+        console.log(`  → with pickup: ${pickupDistance.toFixed(1)}km/${pickupDuration.toFixed(1)}min → time detour=${timeDetourPct.toFixed(1)}% dist detour=${distanceDetourPct.toFixed(1)}%`);
       }
     }
-  } catch {
+  } catch (e) {
+    console.error(`Detour calculation error for ${dr.fullName}:`, e);
     timeDetourPct = 0;
     distanceDetourPct = 0;
   }

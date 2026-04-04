@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
   
+<link rel="stylesheet" href="../mapfinal/passenger-map.css">
 <link rel="stylesheet" href="passenger-map.css"></head>
 <body>
 
@@ -98,6 +99,28 @@
       </button>
 
       <div class="toggle-note" id="visibilityNote">Drivers cannot see you right now. This setting is independent from Find Ride.</div>
+
+      <div class="controls-sep"></div>
+
+      <!-- TRIP TYPE SELECTION -->
+      <span class="step-label">Trip Type</span>
+      
+      <div class="trip-type-selector">
+        <button class="trip-type-btn active" id="tripTypeToClicked" onclick="setTripType('to_campus')" data-trip-type="to_campus">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M19 9l-7-7-7 7M22 12l-10-10-10 10"/>
+          </svg>
+          <span>To Campus</span>
+        </button>
+        <button class="trip-type-btn" id="tripTypeFromClicked" onclick="setTripType('from_campus')" data-trip-type="from_campus">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22V2M5 15l7 7 7-7M2 12l10 10 10-10"/>
+          </svg>
+          <span>From Campus</span>
+        </button>
+      </div>
+
+      <div class="trip-type-note" id="tripTypeNote">Select where you want to go from where you are.</div>
 
       <!-- STEP 2 (revealed after location is set) -->
       <span class="step-label" id="stepAction">Step 2 — Find a ride</span>

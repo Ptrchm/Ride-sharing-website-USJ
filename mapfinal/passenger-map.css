@@ -1368,3 +1368,60 @@
       #statusBox { max-width: calc(100vw - 60px); font-size: 12px; padding: 7px 14px; }
     }
   
+/* Trip Type Selector Styles */
+.trip-type-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.trip-type-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #d5dce0;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #55606a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.trip-type-btn:hover {
+  border-color: #002b59;
+  background-color: #f0f4f8;
+  color: #002b59;
+}
+
+.trip-type-btn.active {
+  border-color: #002b59;
+  background-color: #002b59;
+  color: white;
+}
+
+.trip-type-btn.active svg {
+  stroke: white;
+}
+
+.trip-type-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: currentColor;
+}
+
+.trip-type-note {
+  font-size: 12px;
+  color: #55606a;
+  margin-bottom: 16px;
+  display: block;
+  line-height: 1.4;
+}
