@@ -162,7 +162,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      width: 290px;
+      width: min(250px, calc(100vw - 32px));
       pointer-events: none;
       max-height: calc(100vh - var(--header-h) - 352px);
     }
@@ -175,12 +175,12 @@
     .controls {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 5px;
       background: var(--panel-bg);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-md);
-      padding: 14px;
+      padding: 10px;
       backdrop-filter: saturate(130%) blur(10px);
       -webkit-backdrop-filter: saturate(130%) blur(10px);
       flex-shrink: 0;
@@ -194,9 +194,9 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-bottom: 10px;
+      padding-bottom: 7px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 2px;
+      margin-bottom: 0;
     }
 
     .controls-icon {
@@ -375,14 +375,15 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--muted);
-      padding: 4px 0 0;
+      padding: 2px 0 0;
+      margin-top: 1px;
     }
 
     /* Thin separator line */
     .controls-sep {
       height: 1px;
       background: var(--border);
-      margin: 2px 0;
+      margin: 1px 0;
     }
 
     /* Location status chip */
@@ -439,10 +440,10 @@
     }
 
     .loc-fallback .btn {
-      height: 36px;
-      font-size: 0.78rem;
-      padding: 0 8px;
-      gap: 5px;
+      height: 32px;
+      font-size: 0.75rem;
+      padding: 0 6px;
+      gap: 4px;
     }
 
     /* Return to Home button */
@@ -496,19 +497,17 @@
     .btn-unlock-anim { animation: btn-unlock 0.4s ease forwards !important; }
 
     .toggle-note {
-      padding: 10px 11px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(0, 43, 89, 0.03);
+      padding: 5px 0;
+      border-radius: 0;
+      border: none;
+      background: transparent;
       color: var(--muted);
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1.45;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.35;
     }
 
     .toggle-note.state-on {
-      border-color: rgba(22, 163, 74, 0.32);
-      background: rgba(22, 163, 74, 0.08);
       color: #166534;
     }
 
@@ -1344,7 +1343,7 @@
        RESPONSIVE
     ===================================================================== */
     @media (max-width: 640px) {
-      .left-col { left: 10px; width: min(92vw, 290px); }
+      .left-col { left: 10px; width: min(92vw, 250px); }
       .driver-panel {
         top: auto;
         left: 10px;
@@ -1366,5 +1365,44 @@
       .role-pill { display: none; }
       #legend { bottom: min(56vh, 440px); right: 10px; top: auto; }
       #statusBox { max-width: calc(100vw - 60px); font-size: 12px; padding: 7px 14px; }
+    }
+
+    /* =====================================================================
+       TRIP TYPE SELECTOR STYLES (for passenger)
+    ===================================================================== */
+    .trip-type-row {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .trip-type-row .btn {
+      flex: 1;
+      width: auto;
+      font-size: 0.75rem;
+      padding: 0 10px;
+      height: 32px;
+    }
+
+    .trip-type-row .btn.active {
+      background: linear-gradient(180deg, #1e9de0 0%, var(--accent) 55%, var(--accent-dark) 100%);
+      color: white;
+      border-color: var(--accent);
+      box-shadow: 0 4px 14px rgba(0, 114, 187, 0.25), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+
+    .trip-type-row .btn.active:hover {
+      background: linear-gradient(180deg, #21aaf5 0%, #0085d4 55%, #003b7a 100%);
+      box-shadow: 0 6px 20px rgba(0, 114, 187, 0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+
+    .trip-type-note {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 0.4rem;
+      padding: 0.4rem;
+      background-color: var(--accent-light);
+      border-left: 3px solid var(--accent);
     }
   

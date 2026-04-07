@@ -8,10 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-  
-<link rel="stylesheet" href="passenger-map.css"></head>
-<body>
+  <link rel="stylesheet" href="passenger-map.css">
 
   <!-- ================================================================
        HEADER
@@ -48,7 +45,7 @@
             <path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2"/>
           </svg>
         </div>
-        <span class="controls-title">Passenger</span>
+        <span class="controls-title">Passenger Controls</span>
         <button class="controls-collapse-btn" id="passengerControlsCollapseBtn" type="button" aria-label="Toggle passenger controls">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"></polyline>
@@ -58,12 +55,6 @@
 
       <!-- STEP 1 -->
       <span class="step-label">Step 1 — Set your location</span>
-      <!-- LOCATION STATUS CHIP — updates automatically as GPS resolves -->
-      <div class="loc-status state-acquiring" id="locStatus">
-        <span class="loc-dot"></span>
-        <span id="locText">Detecting your location…</span>
-      </div>
-
       <!-- Compact fallback row (refresh or manual placement) -->
       <div class="loc-fallback">
         <button class="btn btn-outline" id="btnLocate" onclick="locatePassenger()">
@@ -74,7 +65,7 @@
             <circle cx="12" cy="12" r="9"/>
           </svg>
           <span class="btn-spinner"></span>
-          <span class="btn-label">Refresh Location</span>
+          <span class="btn-label">Get Location</span>
         </button>
         <button class="btn btn-outline" id="btnClickPlace" onclick="enableClick()">
           <svg class="btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -86,18 +77,17 @@
         </button>
       </div>
 
-      <span class="step-label">Passenger Status</span>
+      <div class="controls-sep"></div>
 
-      <button class="btn btn-outline" id="btnVisibilityToggle" onclick="toggleLookingForRide()">
-        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-        <span class="btn-label" id="visibilityToggleLabel">Looking for Ride: OFF</span>
-      </button>
+      <!-- TRIP TYPE SELECTION -->
+      <span class="step-label">Trip Type</span>
+      
+      <div class="trip-type-row">
+        <button class="btn btn-outline active" id="tripTypeToClicked" onclick="setTripType('to_campus')" type="button">To Campus</button>
+        <button class="btn btn-outline" id="tripTypeFromClicked" onclick="setTripType('from_campus')" type="button">From Campus</button>
+      </div>
 
-      <div class="toggle-note" id="visibilityNote">Drivers cannot see you right now. This setting is independent from Find Ride.</div>
+      <div class="trip-type-note" id="tripTypeNote">Select where you want to go from where you are.</div>
 
       <!-- STEP 2 (revealed after location is set) -->
       <span class="step-label" id="stepAction">Step 2 — Find a ride</span>
@@ -111,6 +101,21 @@
         <span class="btn-spinner"></span>
         <span class="btn-label">Find Ride</span>
       </button>
+
+      <div class="controls-sep"></div>
+
+      <span class="step-label">Passenger Status</span>
+
+      <button class="btn btn-outline" id="btnVisibilityToggle" onclick="toggleLookingForRide()">
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span class="btn-label" id="visibilityToggleLabel">Looking for Ride: OFF</span>
+      </button>
+
+      <div class="toggle-note" id="visibilityNote">Drivers cannot see you right now. This setting is independent from Find Ride.</div>
 
       <div class="controls-sep"></div>
 
@@ -248,7 +253,7 @@
   <!-- Status pill -->
   <div id="statusBox" role="status" aria-live="polite">
     <span id="statusDot"></span>
-    <span id="statusText">Set your location above to find nearby drivers</span>
+    <span id="statusText">Set your location to find nearby drivers</span>
   </div>
 
   <!-- Map -->

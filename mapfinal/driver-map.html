@@ -56,12 +56,6 @@
 
     <!-- STEP 1 -->
     <span class="step-label">Step 1 — Set your location</span>
-    <!-- LOCATION STATUS CHIP — updates automatically as GPS resolves -->
-    <div class="loc-status state-acquiring" id="locStatus">
-      <span class="loc-dot"></span>
-      <span id="locText">Detecting your location…</span>
-    </div>
-
     <!-- Compact fallback row (refresh or manual placement) -->
     <div class="loc-fallback">
       <button class="btn btn-outline" id="btnLocate" onclick="locateDriver()">
@@ -72,7 +66,7 @@
           <circle cx="12" cy="12" r="9"/>
         </svg>
         <span class="btn-spinner"></span>
-        <span class="btn-label">Refresh GPS</span>
+        <span class="btn-label">Get Location</span>
       </button>
       <button class="btn btn-outline" id="btnClickPlace" onclick="enableClick()">
         <svg class="btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -84,9 +78,18 @@
       </button>
     </div>
 
+    <!-- TRIP TYPE MODE SELECTION -->
+    <div class="controls-sep"></div>
+    <span class="step-label">Trip Type</span>
+    <div class="trip-type-row">
+      <button class="btn btn-outline" id="tripTypeToClicked" onclick="console.log('To clicked'); setTripType('to_campus')" type="button">To Campus</button>
+      <button class="btn btn-outline" id="tripTypeFromClicked" onclick="console.log('From clicked'); setTripType('from_campus')" type="button">From Campus</button>
+    </div>
+    <div class="trip-type-note" id="tripTypeNote">Pick up passengers from various locations heading TO campus.</div>
+
     <!-- FIND PASSENGERS — always visible, unlocks when location is ready -->
     <div class="controls-sep"></div>
-    <span class="step-label" id="stepAction">Find Passengers</span>
+    <span class="step-label" id="stepAction">Step 2 — Find Passengers</span>
 
     <button class="btn btn-primary" id="btnFindPassengers" onclick="findPassengers()" disabled>
       <svg class="btn-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -99,7 +102,8 @@
       <span class="btn-label">Find Passengers</span>
     </button>
 
-    <span class="step-label">Create Ride</span>
+    <div class="controls-sep"></div>
+    <span class="step-label">Create & Publish Ride</span>
 
     <button class="btn btn-outline" id="btnCreateRide" onclick="toggleCreateRidePanel()" disabled>
       <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -110,6 +114,11 @@
     </button>
 
     <div class="create-ride-panel hidden" id="createRidePanel">
+      <button class="panel-back-btn" onclick="toggleCreateRidePanel()" aria-label="Back to main controls" style="margin-bottom: 12px;">
+        <svg width="5" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 1L1 5l4 4"/>
+        </svg>
+      </button>
       <div class="create-mode-row">
         <button class="btn btn-outline create-mode-btn active" id="createModeAutoBtn" type="button" onclick="setCreateMode('automatic')">Automatic</button>
         <button class="btn btn-outline create-mode-btn" id="createModeManualBtn" type="button" onclick="setCreateMode('manual')">Manual</button>
@@ -142,9 +151,6 @@
 
       <button class="btn btn-primary" id="btnPublishRide" type="button" onclick="publishRide()" disabled>
         <span class="btn-label">Publish Ride</span>
-      </button>
-      <button class="btn btn-outline" id="btnStartRide" type="button" onclick="startRide()" disabled>
-        <span class="btn-label">Start Ride</span>
       </button>
       <div class="publish-note" id="createRideNote">Set your location first, then create a route.</div>
       <div class="publish-note" id="startRideNote">Passengers: 0 / 0 · Seats left: 0</div>
@@ -212,7 +218,7 @@
         </div>
 
         <div class="detail-card">
-          <span class="detail-label">Destination</span>
+          <span class="detail-label" id="panelLocationLabel">Destination</span>
           <div class="detail-value" id="panelPassengerDestination"></div>
         </div>
 
@@ -252,7 +258,7 @@
   <!-- Status pill -->
   <div id="statusBox" role="status" aria-live="polite">
     <span id="statusDot"></span>
-    <span id="statusText">Detecting your location…</span>
+    <span id="statusText">Set your location to find nearby passengers</span>
   </div>
 
   <!-- Map -->
@@ -261,6 +267,6 @@
   <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  
 
-  
+
 <script src="driver-map.js"></script></body>
 </html>

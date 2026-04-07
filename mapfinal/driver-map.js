@@ -5,6 +5,7 @@
     ===================================================================== */
     const CAMPUS_LAT = 33.8654840;
     const CAMPUS_LNG = 35.5631210;
+    const CAMPUS = { lat: CAMPUS_LAT, lng: CAMPUS_LNG };
     const OSRM_BASE  = 'https://router.project-osrm.org/route/v1/driving';
     const REQUEST_STORAGE_KEY = 'usj-rideshare-driver-requests';
     const PASSENGER_VISIBILITY_KEY = 'usj-rideshare-passenger-visibility';
@@ -20,24 +21,131 @@
       licensePlate: 'R 881122',
     };
 
+    // Passengers from various locations going TO campus (to_campus mode)
     const PASSENGERS = [
-      { id: 'passenger-1',  fullName: 'Lina Haddad',    phone: '+96170111223', lat: 33.8695, lng: 35.5470, destination: 'Downtown Beirut' },
-      { id: 'passenger-2',  fullName: 'Karim Nassar',   phone: '+96170111224', lat: 33.8705, lng: 35.5510, destination: 'Hamra Street' },
-      { id: 'passenger-3',  fullName: 'Maya Khoury',    phone: '+96170111225', lat: 33.8660, lng: 35.5485, destination: 'Achrafieh' },
-      { id: 'passenger-4',  fullName: 'Rami Saliba',    phone: '+96170111226', lat: 33.8650, lng: 35.5400, destination: 'Verdun' },
-      { id: 'passenger-5',  fullName: 'Lea Abi Saab',   phone: '+96170111227', lat: 33.8720, lng: 35.5430, destination: 'Gemmayze' },
-      { id: 'passenger-6',  fullName: 'Jad Tannous',    phone: '+96170111228', lat: 33.8635, lng: 35.5525, destination: 'Mar Mikhael' },
-      { id: 'passenger-7',  fullName: 'Nadine Daher',   phone: '+96170111229', lat: 33.9000, lng: 35.5460, destination: 'Antelias' },
-      { id: 'passenger-8',  fullName: 'Omar Ghosn',     phone: '+96170111230', lat: 33.8300, lng: 35.5450, destination: 'Jounieh' },
-      { id: 'passenger-9',  fullName: 'Sara Aoun',      phone: '+96170111231', lat: 33.8680, lng: 35.5900, destination: 'Byblos' },
-      { id: 'passenger-10', fullName: 'Tarek Yared',    phone: '+96170111232', lat: 33.8680, lng: 35.5000, destination: 'Dbayeh' },
-      { id: 'passenger-11', fullName: 'Dana Sfeir',     phone: '+96170111233', lat: 33.8950, lng: 35.5700, destination: 'Kaslik' },
-      { id: 'passenger-12', fullName: 'Samer Boueiz',   phone: '+96170111234', lat: 33.8450, lng: 35.5750, destination: 'Airport' },
-      { id: 'passenger-13', fullName: 'Rita Farah',     phone: '+96170111235', lat: 33.8950, lng: 35.5200, destination: 'Nahr Ibrahim' },
-      { id: 'passenger-14', fullName: 'Youssef Helou',  phone: '+96170111236', lat: 33.8450, lng: 35.5200, destination: 'Baabda' },
-      { id: 'passenger-15', fullName: 'Celine Maalouf', phone: '+96170111237', lat: 33.9200, lng: 35.6200, destination: 'Tripoli' },
-      { id: 'passenger-16', fullName: 'Elie Matar',     phone: '+96170111238', lat: 33.8200, lng: 35.4800, destination: 'Sidon' },
+      { id: 'passenger-1',  fullName: 'Lina Haddad',    phone: '+96170111223', lat: 33.8695, lng: 35.5470, pickupLocation: 'Hamra' },
+      { id: 'passenger-2',  fullName: 'Karim Nassar',   phone: '+96170111224', lat: 33.8705, lng: 35.5510, pickupLocation: 'Mar Roukos' },
+      { id: 'passenger-3',  fullName: 'Maya Khoury',    phone: '+96170111225', lat: 33.8660, lng: 35.5485, pickupLocation: 'Achrafieh' },
+      { id: 'passenger-4',  fullName: 'Rami Saliba',    phone: '+96170111226', lat: 33.8650, lng: 35.5400, pickupLocation: 'Ras Beirut' },
+      { id: 'passenger-5',  fullName: 'Lea Abi Saab',   phone: '+96170111227', lat: 33.8720, lng: 35.5430, pickupLocation: 'Gemmayze' },
+      { id: 'passenger-6',  fullName: 'Jad Tannous',    phone: '+96170111228', lat: 33.8635, lng: 35.5525, pickupLocation: 'Mar Mikhael' },
+      { id: 'passenger-7',  fullName: 'Nadine Daher',   phone: '+96170111229', lat: 33.9000, lng: 35.5460, pickupLocation: 'Kaslik' },
+      { id: 'passenger-8',  fullName: 'Omar Ghosn',     phone: '+96170111230', lat: 33.8300, lng: 35.5450, pickupLocation: 'South Beirut' },
+      { id: 'passenger-9',  fullName: 'Sara Aoun',      phone: '+96170111231', lat: 33.8680, lng: 35.5900, pickupLocation: 'Jounieh' },
+      { id: 'passenger-10', fullName: 'Tarek Yared',    phone: '+96170111232', lat: 33.8680, lng: 35.5000, pickupLocation: 'Hadath' },
+      { id: 'passenger-11', fullName: 'Dana Sfeir',     phone: '+96170111233', lat: 33.8950, lng: 35.5700, pickupLocation: 'Antelias' },
+      { id: 'passenger-12', fullName: 'Samer Boueiz',   phone: '+96170111234', lat: 33.8450, lng: 35.5750, pickupLocation: 'Baabda' },
+      { id: 'passenger-13', fullName: 'Rita Farah',     phone: '+96170111235', lat: 33.8950, lng: 35.5200, pickupLocation: 'Nahr Ibrahim' },
+      { id: 'passenger-14', fullName: 'Youssef Helou',  phone: '+96170111236', lat: 33.8450, lng: 35.5200, pickupLocation: 'Hadath' },
+      { id: 'passenger-15', fullName: 'Celine Maalouf', phone: '+96170111237', lat: 33.9200, lng: 35.6200, pickupLocation: 'Tripoli' },
+      { id: 'passenger-16', fullName: 'Elie Matar',     phone: '+96170111238', lat: 33.8200, lng: 35.4800, pickupLocation: 'Sidon' },
     ];
+
+    // Students at campus wanting to go to various destinations (from_campus mode)
+    const STUDENTS_AT_CAMPUS = [
+      { id: 'student-1',  fullName: 'Hani Kabbani',     phone: '+96170222333', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Hamra', arrivalTime: '14:00' },
+      { id: 'student-2',  fullName: 'Dina Mansour',     phone: '+96170222334', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Mar Roukos', arrivalTime: '15:30' },
+      { id: 'student-3',  fullName: 'Fadi Harb',        phone: '+96170222335', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Achrafieh', arrivalTime: '14:45' },
+      { id: 'student-4',  fullName: 'Lara Moussa',      phone: '+96170222336', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Ras Beirut', arrivalTime: '15:00' },
+      { id: 'student-5',  fullName: 'Khalil Khalil',    phone: '+96170222337', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Gemmayze', arrivalTime: '16:00' },
+      { id: 'student-6',  fullName: 'Rima Stephan',     phone: '+96170222338', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Mar Mikhael', arrivalTime: '14:30' },
+      { id: 'student-7',  fullName: 'Tamim Sayah',      phone: '+96170222339', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Kaslik', arrivalTime: '15:45' },
+      { id: 'student-8',  fullName: 'Nadia Fares',      phone: '+96170222340', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'South Beirut', arrivalTime: '16:30' },
+      { id: 'student-9',  fullName: 'Wessam Rahhal',    phone: '+96170222341', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Jounieh', arrivalTime: '15:15' },
+      { id: 'student-10', fullName: 'Maya Sarkis',      phone: '+96170222342', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Hadath', arrivalTime: '14:00' },
+      { id: 'student-11', fullName: 'Karim Abboud',     phone: '+96170222343', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Antelias', arrivalTime: '15:20' },
+      { id: 'student-12', fullName: 'Zahra Daher',      phone: '+96170222344', lat: CAMPUS_LAT, lng: CAMPUS_LNG, destination: 'Baabda', arrivalTime: '16:15' },
+    ];
+
+    // Destination coordinates for students' destinations
+    // City names now match the actual coordinates
+    const STUDENT_DESTINATIONS = {
+      'Hamra': { lat: 33.8695, lng: 35.5470 },
+      'Mar Roukos': { lat: 33.8705, lng: 35.5510 },
+      'Achrafieh': { lat: 33.8660, lng: 35.5485 },
+      'Ras Beirut': { lat: 33.8650, lng: 35.5400 },
+      'Gemmayze': { lat: 33.8720, lng: 35.5430 },
+      'Mar Mikhael': { lat: 33.8635, lng: 35.5525 },
+      'Kaslik': { lat: 33.9000, lng: 35.5460 },
+      'South Beirut': { lat: 33.8300, lng: 35.5450 },
+      'Jounieh': { lat: 33.8680, lng: 35.5900 },
+      'Hadath': { lat: 33.8680, lng: 35.5000 },
+      'Antelias': { lat: 33.8950, lng: 35.5700 },
+      'Baabda': { lat: 33.8450, lng: 35.5750 },
+    };
+
+    /* =====================================================================
+       TRIP TYPE STATE & HANDLERS (for driver perspective bidirectional logic)
+    ===================================================================== */
+    let tripType = 'to_campus'; // 'to_campus' or 'from_campus'
+
+    function setTripType(type) {
+      tripType = type === 'to_campus' ? 'to_campus' : 'from_campus';
+      console.log('[TRIP TYPE]', tripType);
+      
+      // Update button UI
+      const toBtn = document.getElementById('tripTypeToClicked');
+      const fromBtn = document.getElementById('tripTypeFromClicked');
+      
+      if (toBtn) {
+        if (tripType === 'to_campus') {
+          toBtn.classList.add('active');
+        } else {
+          toBtn.classList.remove('active');
+        }
+      }
+      
+      if (fromBtn) {
+        if (tripType === 'from_campus') {
+          fromBtn.classList.add('active');
+        } else {
+          fromBtn.classList.remove('active');
+        }
+      }
+      
+      // Update note
+      const noteEl = document.getElementById('tripTypeNote');
+      if (noteEl) {
+        const noteText = tripType === 'to_campus' 
+          ? 'Pick up passengers from various locations heading TO campus.'
+          : 'Pick up students FROM campus heading to various destinations.';
+        noteEl.textContent = noteText;
+      }
+    }
+
+    function getPassengersForTripType() {
+      // Returns the list of available passengers based on trip type
+      // "to_campus" mode: Regular PASSENGERS (going to campus)
+      // "from_campus" mode: STUDENTS_AT_CAMPUS (at campus going to various destinations)
+      if (tripType === 'from_campus') {
+        return STUDENTS_AT_CAMPUS.map(student => {
+          const destCoords = STUDENT_DESTINATIONS[student.destination];
+          return {
+            ...student,
+            destinationLat: destCoords.lat,
+            destinationLng: destCoords.lng,
+            pickupLat: CAMPUS_LAT,
+            pickupLng: CAMPUS_LNG,
+            isStudent: true,
+          };
+        });
+      }
+      // Default: to_campus mode uses PASSENGERS going to campus
+      return PASSENGERS.map(p => ({
+        ...p,
+        pickupLat: p.lat,
+        pickupLng: p.lng,
+        destinationLat: CAMPUS_LAT,
+        destinationLng: CAMPUS_LNG,
+        isStudent: false,
+      }));
+    }
+
+    function getDriverDestinationForTripType() {
+      // Returns the driver's final destination based on trip type
+      // Both modes: driver goes to their actual GPS location (home)
+      return { lat: driverLat, lng: driverLng };
+    }
 
     /* =====================================================================
        COLLAPSE/EXPAND PANEL FUNCTIONS
@@ -50,14 +158,30 @@
 
     function toggleDriverControls() {
       const controls = document.querySelector('.controls');
+      const inbox = document.getElementById('requestInbox');
+      
       controls.classList.toggle('collapsed');
       localStorage.setItem('usj-rideshare-driver-controls-collapsed', controls.classList.contains('collapsed'));
+      
+      // When expanding controls, collapse request inbox
+      if (!controls.classList.contains('collapsed') && !inbox.classList.contains('collapsed')) {
+        inbox.classList.add('collapsed');
+        localStorage.setItem('usj-rideshare-request-inbox-collapsed', true);
+      }
     }
 
     function toggleRequestInbox() {
       const inbox = document.getElementById('requestInbox');
+      const controls = document.querySelector('.controls');
+      
       inbox.classList.toggle('collapsed');
       localStorage.setItem('usj-rideshare-request-inbox-collapsed', inbox.classList.contains('collapsed'));
+      
+      // When expanding request inbox, collapse driver controls
+      if (!inbox.classList.contains('collapsed') && !controls.classList.contains('collapsed')) {
+        controls.classList.add('collapsed');
+        localStorage.setItem('usj-rideshare-driver-controls-collapsed', true);
+      }
     }
 
     function togglePassengerRankPanel() {
@@ -154,6 +278,7 @@
     let createRideLine    = null;
     let manualPointMarkers = [];
     let passengerMarkers  = [];
+    let passengerRoutes   = [];
     let clickMode         = false;
     let selectedPassenger = null;
     let createRideOpen    = false;
@@ -499,17 +624,24 @@
     }
 
     function buildDriverActiveRideFromPublishedRide(ride) {
+      console.log('[BUILD_ACTIVE] Input published ride:', ride);
       const normalized = normalizeRide(ride);
+      console.log('[BUILD_ACTIVE] Normalized ride:', normalized);
+      console.log('[BUILD_ACTIVE] Normalized route:', normalized?.route);
       const firstPassenger = normalized.passengers[0] || null;
-      return {
-        rideId: normalized.rideId || `active-${Date.now()}`,
+      const activeRide = {
+        rideId: normalized.rideId || ride.rideId || `active-${Date.now()}`,
+        driverId: ride.driverId || DRIVER_PROFILE.id,
+        tripType: 'to_campus',
+        seatCapacity: normalized.capacity,
         sourceType: 'carpool-published-ride',
-        sourceRequestId: normalized.rideId || null,
+        sourceRequestId: normalized.rideId || ride.rideId || null,
         status: 'in_progress',
         startedAt: normalized.startedAt || new Date().toISOString(),
         role: 'driver',
         capacity: normalized.capacity,
         passengers: normalized.passengers,
+        arrivalTime: ride.arrivalTime || null,
         driver: {
           id: DRIVER_PROFILE.id,
           fullName: DRIVER_PROFILE.fullName,
@@ -529,6 +661,9 @@
         routeCoords: Array.isArray(normalized.route.coords) ? normalized.route.coords : [],
         route: normalized.route,
       };
+      console.log('[BUILD_ACTIVE] Final activeRide.route:', activeRide.route);
+      console.log('[BUILD_ACTIVE] Final activeRide.route.coords length:', activeRide.route?.coords?.length);
+      return activeRide;
     }
 
     function startRide() {
@@ -876,17 +1011,24 @@
     }
 
     function confirmRideAsDriver(requestType, requestId) {
+      let bothConfirmed = false;
+      let relatedRideId = null;
+      let confirmedRequest = null;
+
       if (requestType === 'join-request') {
         const requests = readJoinRequests();
         const updated = requests.map(request => {
           if (getJoinRequestKey(request) !== requestId) return request;
+          confirmedRequest = request;
           const driverConfirmed = true;
           const passengerConfirmed = Boolean(request.passengerConfirmed);
+          bothConfirmed = passengerConfirmed && driverConfirmed;
+          relatedRideId = request.rideId;
           return {
             ...request,
             driverConfirmed,
             driverConfirmedAt: new Date().toISOString(),
-            rideStartedAt: passengerConfirmed && driverConfirmed ? (request.rideStartedAt || new Date().toISOString()) : request.rideStartedAt,
+            rideStartedAt: bothConfirmed ? (request.rideStartedAt || new Date().toISOString()) : request.rideStartedAt,
           };
         });
         try {
@@ -899,13 +1041,16 @@
         const requests = readStoredRequests();
         const updated = requests.map(request => {
           if (request?.requestId !== requestId) return request;
+          confirmedRequest = request;
           const driverConfirmed = true;
           const passengerConfirmed = Boolean(request.passengerConfirmed);
+          bothConfirmed = passengerConfirmed && driverConfirmed;
+          relatedRideId = request.rideId;
           return {
             ...request,
             driverConfirmed,
             driverConfirmedAt: new Date().toISOString(),
-            rideStartedAt: passengerConfirmed && driverConfirmed ? (request.rideStartedAt || new Date().toISOString()) : request.rideStartedAt,
+            rideStartedAt: bothConfirmed ? (request.rideStartedAt || new Date().toISOString()) : request.rideStartedAt,
           };
         });
         try {
@@ -915,6 +1060,48 @@
           return;
         }
       }
+
+      // If both sides confirmed, update published ride status to in_progress and add passenger
+      if (bothConfirmed && relatedRideId && confirmedRequest) {
+        console.log('[CONFIRM] Both sides confirmed, looking for rideId:', relatedRideId);
+        console.log('[CONFIRM] Confirmed request:', confirmedRequest);
+        const publishedRides = readPublishedRides();
+        console.log('[CONFIRM] All published rides:', publishedRides);
+        const updatedRides = publishedRides.map(ride => {
+          if (ride?.rideId !== relatedRideId) return ride;
+          console.log('[CONFIRM] Found ride to update:', ride);
+
+          // Build passenger entry from request
+          const passengerEntry = {
+            id: confirmedRequest.passengerId,
+            name: confirmedRequest.passengerName || confirmedRequest.fullName,
+            phone: confirmedRequest.passengerPhone,
+            location: {
+              lat: confirmedRequest.passengerLat,
+              lng: confirmedRequest.passengerLng,
+            },
+          };
+
+          const rideToUpdate = {
+            ...ride,
+            status: 'in_progress',
+            passengers: [
+              ...(Array.isArray(ride.passengers) ? ride.passengers : []),
+              passengerEntry,
+            ].filter((p, idx, arr) => arr.findIndex(item => item.id === p.id) === idx), // deduplicate
+          };
+          console.log('[CONFIRM] Updated ride with status in_progress and passenger:', rideToUpdate);
+          console.log('[CONFIRM] Route on updated ride:', rideToUpdate.route);
+          return rideToUpdate;
+        });
+        try {
+          localStorage.setItem(RIDE_PUBLISH_STORAGE_KEY, JSON.stringify(updatedRides));
+          console.log('[CONFIRM] Saved updated rides to storage');
+        } catch (err) {
+          console.error('Failed to update published ride status:', err);
+        }
+      }
+
       renderJoinRequests();
       if (selectedPassenger) renderPassengerDetails(selectedPassenger);
       maybeActivateDriverRideAndRedirect();
@@ -1137,30 +1324,76 @@
     function readVisiblePassengerProfile() {
       try {
         const raw = localStorage.getItem(PASSENGER_VISIBILITY_KEY);
-        if (!raw) return null;
+        if (!raw) {
+          console.log('[VISIBILITY] No visibility data in localStorage');
+          return null;
+        }
         const parsed = JSON.parse(raw);
-        if (!parsed?.visible) return null;
-        if (typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') return null;
-        return {
+        console.log('[VISIBILITY] Raw data:', parsed);
+        if (!parsed?.visible) {
+          console.log('[VISIBILITY] Passenger visibility flag is off');
+          return null;
+        }
+        if (typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') {
+          console.log('[VISIBILITY] Passenger location not set:', { lat: parsed.lat, lng: parsed.lng });
+          return null;
+        }
+        console.log('[VISIBILITY] Valid visible passenger found');
+        
+        // Structure based on trip type to match searchable passengers format
+        const baseProfile = {
           id: parsed.id || 'passenger-live',
           fullName: parsed.fullName || 'Current Passenger',
           phone: parsed.phone || '+96170111000',
           lat: parsed.lat,
           lng: parsed.lng,
         };
-      } catch {
+        
+        // Add trip-type-specific fields
+        if (tripType === 'from_campus') {
+          // For from_campus: assume at campus going to a generic location
+          return {
+            ...baseProfile,
+            destination: 'Unknown Destination',
+            destinationLat: baseProfile.lat,  // Use their current location as destination
+            destinationLng: baseProfile.lng,
+            pickupLat: CAMPUS_LAT,
+            pickupLng: CAMPUS_LNG,
+            isStudent: true,
+          };
+        } else {
+          // For to_campus: they're at their location heading to campus
+          return {
+            ...baseProfile,
+            pickupLat: baseProfile.lat,
+            pickupLng: baseProfile.lng,
+            destinationLat: CAMPUS_LAT,
+            destinationLng: CAMPUS_LNG,
+            isStudent: false,
+          };
+        }
+      } catch (err) {
+        console.error('[VISIBILITY] Error reading visibility state:', err);
         return null;
       }
     }
 
     function getSearchablePassengers() {
-      // Use the full passenger pool for distance-based matching and color coding.
-      // If a live visible passenger exists, merge it in to keep location fresh.
+      // Get passengers for current trip type, with live visible passenger merged if exists
+      const basePassengers = getPassengersForTripType();
       const visiblePassenger = readVisiblePassengerProfile();
-      if (!visiblePassenger) return PASSENGERS;
-      const index = PASSENGERS.findIndex(passenger => passenger.id === visiblePassenger.id);
-      if (index === -1) return [...PASSENGERS, visiblePassenger];
-      const merged = [...PASSENGERS];
+      if (!visiblePassenger) {
+        console.log('[PASSENGERS] No visible passenger found in localStorage');
+        return basePassengers;
+      }
+      console.log('[PASSENGERS] Found visible passenger:', visiblePassenger);
+      const index = basePassengers.findIndex(passenger => passenger.id === visiblePassenger.id);
+      if (index === -1) {
+        console.log('[PASSENGERS] Adding visible passenger to list (new)');
+        return [...basePassengers, visiblePassenger];
+      }
+      console.log('[PASSENGERS] Merging visible passenger with existing entry');
+      const merged = [...basePassengers];
       merged[index] = { ...merged[index], ...visiblePassenger };
       return merged;
     }
@@ -1267,8 +1500,16 @@
 
     function maybeActivateDriverRideAndRedirect() {
       const inProgressRide = getLatestDriverRide(['in_progress']);
-      if (!inProgressRide) return false;
+      console.log('[REDIRECT] Looking for in_progress ride, found:', inProgressRide);
+      if (!inProgressRide) {
+        console.log('[REDIRECT] No in_progress ride found, not redirecting');
+        return false;
+      }
+      console.log('[REDIRECT] Building active ride from published ride');
       const activeRide = buildDriverActiveRideFromPublishedRide(inProgressRide);
+      console.log('[REDIRECT] Built activeRide:', activeRide);
+      console.log('[REDIRECT] activeRide.route:', activeRide.route);
+      console.log('[REDIRECT] activeRide.route.coords length:', activeRide.route?.coords?.length);
       localStorage.setItem(ACTIVE_RIDE_STORAGE_KEY, JSON.stringify(activeRide));
       writeInitialRidePositions(activeRide);
       window.location.href = 'my-map.html';
@@ -1327,7 +1568,10 @@
       const callBtn = document.getElementById('panelCallBtn');
       callBtn.href = canSharePhone ? `tel:${passenger.phone}` : '#';
       callBtn.classList.toggle('is-disabled', !canSharePhone);
-      document.getElementById('panelPassengerDestination').textContent = passenger.destination || 'Not specified';
+      const locationLabel = tripType === 'to_campus' ? (passenger.pickupLocation || 'Not specified') : (passenger.destination || 'Not specified');
+      const labelText = tripType === 'to_campus' ? 'Pickup Location' : 'Destination';
+      document.getElementById('panelLocationLabel').textContent = labelText;
+      document.getElementById('panelPassengerDestination').textContent = locationLabel;
       document.getElementById('panelPassengerFit').textContent = `${passenger.pickupDistanceKm?.toFixed(1) || '—'} km · ~${passenger.pickupDurationMin?.toFixed(0) || '—'} min`;
       setRequestNote(
         requestedPassengerIds.has(passenger.id)
@@ -1368,10 +1612,92 @@
     function clearPassengerMarkers() {
       passengerMarkers.forEach(entry => map.removeLayer(entry.marker));
       passengerMarkers = [];
+      passengerRoutes.forEach(route => map.removeLayer(route));
+      passengerRoutes = [];
+    }
+
+    async function drawPassengerRoutes(passengers) {
+      // For from_campus mode, draw FULL detour routes: campus → student destination → driver home
+      // This matches the actual detour calculation used for scoring
+      if (tripType !== 'from_campus') return;
+      
+      console.log(`Drawing full detour routes for ${passengers.length} passengers in from_campus mode`);
+      
+      for (const passenger of passengers) {
+        // Skip red routes with high detour (score >= 25)
+        if (passenger.score >= 25) continue;
+        
+        if (!passenger.destinationLat || !passenger.destinationLng) continue;
+        if (driverLat === null || driverLng === null) continue;
+        
+        // Determine color based on score (match marker color coding)
+        let routeColor = '#dc2626'; // red for score >= 25
+        if (passenger.score < 15) {
+          routeColor = '#16a34a'; // green for score < 15
+        } else if (passenger.score < 25) {
+          routeColor = '#f59e0b'; // orange for score < 25
+        }
+        
+        try {
+          // Check if destination is the driver's location
+          const isDestinationAtDriver = 
+            Math.abs(passenger.destinationLat - driverLat) < 0.0001 &&
+            Math.abs(passenger.destinationLng - driverLng) < 0.0001;
+          
+          let routeUrl;
+          if (isDestinationAtDriver) {
+            // If destination is driver location, use simple route: CAMPUS → destination
+            routeUrl = `${OSRM_BASE}/${CAMPUS_LNG},${CAMPUS_LAT};${passenger.destinationLng},${passenger.destinationLat}?overview=full&geometries=geojson`;
+          } else {
+            // Normal detour route: CAMPUS → destination → driver home
+            routeUrl = `${OSRM_BASE}/${CAMPUS_LNG},${CAMPUS_LAT};${passenger.destinationLng},${passenger.destinationLat};${driverLng},${driverLat}?overview=full&geometries=geojson`;
+          }
+          
+          const res = await fetch(routeUrl);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.routes?.[0]) {
+              const route = data.routes[0];
+              const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+              const polyline = L.polyline(coords, {
+                color: routeColor,
+                weight: 4,
+                opacity: 0.9
+              }).addTo(map);
+              polyline.bindPopup(`<strong>${passenger.fullName}</strong><br>→ ${passenger.destination}<br>Detour: ${(passenger.timeDetourPct || 0).toFixed(0)}% time / ${(passenger.distanceDetourPct || 0).toFixed(0)}% distance<br>Score: ${(passenger.score || 0).toFixed(1)}`);
+              passengerRoutes.push(polyline);
+              
+              // Add marker at destination location
+              const destMarker = L.circleMarker([passenger.destinationLat, passenger.destinationLng], {
+                radius: 6,
+                color: routeColor,
+                fillColor: routeColor,
+                fillOpacity: 0.8,
+                weight: 2
+              }).addTo(map);
+              destMarker.bindTooltip(`${passenger.destination}`, { permanent: false, direction: 'top', opacity: 0.9 });
+              destMarker.bindPopup(`<strong>${passenger.destination}</strong><br>Drop-off for ${passenger.fullName}`);
+              passengerRoutes.push(destMarker);
+              
+              console.log(`Drew ${isDestinationAtDriver ? 'simple' : 'detour'} route for ${passenger.fullName} to ${passenger.destination} (detour: ${(passenger.timeDetourPct || 0).toFixed(0)}% time) - color: ${routeColor}`);
+            }
+          }
+        } catch (err) {
+          console.error(`Error drawing route for ${passenger.fullName}:`, err);
+        }
+      }
     }
 
     function renderPassengerMarkers(passengers) {
       clearPassengerMarkers();
+      // Draw passenger routes for from_campus mode (good matches only)
+      const goodMatches = passengers.filter(p => p.score < 25);
+      if (tripType === 'from_campus') {
+        drawPassengerRoutes(goodMatches).catch(err => console.error('Route drawing failed:', err));
+      }
+      
+      const badMatches = passengers.filter(p => p.score >= 25);
+      
       if (!passengers.length) {
         setPassengerPanelEmpty('No nearby passengers in your area. Try adjusting your location or destination.', 'Empty');
         document.getElementById('passengerRankEmpty').classList.remove('hidden');
@@ -1379,15 +1705,25 @@
         return;
       }
       
-      // Render markers on map
-      passengers.forEach(passenger => {
+      // Render good match markers
+      goodMatches.forEach(passenger => {
+        // Determine marker location based on trip type
+        let markerLat = passenger.lat;
+        let markerLng = passenger.lng;
+        
+        if (tripType === 'from_campus') {
+          // from_campus: show at destination location (lookup in STUDENT_DESTINATIONS if needed)
+          const destCoords = STUDENT_DESTINATIONS[passenger.destination];
+          markerLat = destCoords?.lat !== undefined ? destCoords.lat : (passenger.destinationLat !== undefined ? passenger.destinationLat : CAMPUS_LAT);
+          markerLng = destCoords?.lng !== undefined ? destCoords.lng : (passenger.destinationLng !== undefined ? passenger.destinationLng : CAMPUS_LNG);
+        }
+        // to_campus: show at pickup location (default passenger.lat/lng)
+        
         let fillColor = '#14b8a6';
         if (passenger.score < 15) {
           fillColor = '#16a34a';
         } else if (passenger.score < 25) {
           fillColor = '#f59e0b';
-        } else {
-          fillColor = '#dc2626';
         }
         
         const baseStyle = {
@@ -1397,7 +1733,7 @@
           fillOpacity: 0.95,
           weight: 2.5,
         };
-        const marker = L.circleMarker([passenger.lat, passenger.lng], baseStyle).addTo(map);
+        const marker = L.circleMarker([markerLat, markerLng], baseStyle).addTo(map);
         marker.bindTooltip(
           `<div class="passenger-tooltip">${passenger.fullName}</div>`,
           { permanent: false, direction: 'top', opacity: 0.94 }
@@ -1412,13 +1748,49 @@
         passengerMarkers.push({ marker, passenger, baseStyle });
       });
       
-      // Populate nearby passengers panel list
+      // Render bad match markers at appropriate location (red only)
+      badMatches.forEach(passenger => {
+        let dropoffLat = passenger.lat;
+        let dropoffLng = passenger.lng;
+        let dropoffLabel = passenger.pickupLocation || 'Location';
+        
+        if (tripType === 'from_campus') {
+          // from_campus: show at destination location (lookup in STUDENT_DESTINATIONS if needed)
+          const destCoords = STUDENT_DESTINATIONS[passenger.destination];
+          dropoffLat = destCoords?.lat !== undefined ? destCoords.lat : (passenger.destinationLat !== undefined ? passenger.destinationLat : CAMPUS_LAT);
+          dropoffLng = destCoords?.lng !== undefined ? destCoords.lng : (passenger.destinationLng !== undefined ? passenger.destinationLng : CAMPUS_LNG);
+          dropoffLabel = passenger.destination || 'Unknown destination';
+        }
+        // to_campus: show at pickup location (default passenger.lat/lng)
+        
+        const baseStyle = {
+          radius: 7,
+          color: '#7f1d1d',
+          fillColor: '#dc2626',
+          fillOpacity: 0.7,
+          weight: 2,
+        };
+        const marker = L.circleMarker([dropoffLat, dropoffLng], baseStyle).addTo(map);
+        marker.bindTooltip(
+          `<div class="passenger-tooltip">${passenger.fullName} (high detour)</div>`,
+          { permanent: false, direction: 'top', opacity: 0.94 }
+        );
+        marker.bindPopup(
+          `<div style="font-family:Inter,sans-serif">
+            <strong>${passenger.fullName}</strong><br>
+            <span style="color:#55606a">${passenger.distanceFromRoute ? 'Too far from route' : 'High detour (' + (passenger.score || 0).toFixed(0) + '%)'}<br>${dropoffLabel}</span>
+          </div>`
+        );
+        passengerMarkers.push({ marker, passenger, baseStyle });
+      });
+      
+      // Populate nearby passengers panel list - ONLY good matches
       const rankRows = document.getElementById('passengerRankRows');
       rankRows.innerHTML = '';
       document.getElementById('passengerRankEmpty').classList.add('hidden');
       
-      passengers.forEach((passenger, idx) => {
-        const badgeCls = passenger.score < 15 ? 'badge-green' : passenger.score < 25 ? 'badge-orange' : 'badge-red';
+      goodMatches.forEach((passenger, idx) => {
+        const badgeCls = passenger.score < 15 ? 'badge-green' : 'badge-orange';
         const row = document.createElement('div');
         row.className = 'passenger-row';
         row.setAttribute('role', 'button');
@@ -1428,17 +1800,22 @@
           <span class="passenger-rank">${idx + 1}</span>
           <div class="passenger-info">
             <div class="passenger-name">${passenger.fullName}</div>
-            <div class="passenger-sub">${passenger.destination || 'Destination not specified'}</div>
+            <div class="passenger-sub">${tripType === 'to_campus' ? (passenger.pickupLocation || 'Location not specified') : (passenger.destination || 'Destination not specified')}</div>
             <div class="passenger-time">${passenger.pickupDistanceKm?.toFixed(1) || '—'} km · ~${passenger.pickupDurationMin?.toFixed(0) || '—'} min</div>
           </div>
-          <span class="badge ${badgeCls}">${passenger.score.toFixed(1)}</span>
+          <span class="badge ${badgeCls}">${(passenger.score || 0).toFixed(1)}</span>
         `;
         row.onclick = () => selectPassenger(passenger.id);
         rankRows.appendChild(row);
       });
       
-      document.getElementById('passengerRankCount').textContent = passengers.length;
-      setPassengerPanelEmpty('Click a nearby passenger to open the contact panel.', `${passengers.length} Nearby`);
+      document.getElementById('passengerRankCount').textContent = goodMatches.length;
+      if (badMatches.length > 0) {
+        const reason = badMatches.some(p => p.distanceFromRoute) ? 'too far' : 'high detour';
+        setPassengerPanelEmpty(`Showing ${goodMatches.length} good matches. ${badMatches.length} more with ${reason} (red dots).`, `${goodMatches.length} Good`);
+      } else {
+        setPassengerPanelEmpty('Click a nearby passenger to open the contact panel.', `${goodMatches.length} Nearby`);
+      }
     }
 
     function requestSelectedPassenger() {
@@ -1464,8 +1841,10 @@
         passengerId: selectedPassenger.id,
         fullName: selectedPassenger.fullName,
         phone: selectedPassenger.phone,
-        routeDistanceKm: Number(selectedPassenger.routeDistanceKm.toFixed(2)),
-        timeDetourPct: Number(selectedPassenger.timeDetourPct.toFixed(0)),
+        pickupLat: selectedPassenger.lat || null,
+        pickupLng: selectedPassenger.lng || null,
+        routeDistanceKm: Number((selectedPassenger.routeDistanceKm || 0).toFixed(2)),
+        timeDetourPct: Number((selectedPassenger.timeDetourPct || 0).toFixed(0)),
         status: 'pending',
         driverConfirmed: false,
         passengerConfirmed: false,
@@ -1488,8 +1867,10 @@
     /* Update location chip state */
     function setLocStatus(text, state) {
       const el = document.getElementById('locStatus');
-      el.className = 'loc-status' + (state ? ` state-${state}` : '');
-      document.getElementById('locText').textContent = text;
+      if (el) {
+        el.className = 'loc-status' + (state ? ` state-${state}` : '');
+        document.getElementById('locText').textContent = text;
+      }
     }
 
     /* Unlock the Find Passengers button with a pop animation */
@@ -1567,6 +1948,7 @@ function computeMatchScore(timeDetourPct, routeDistanceKm) {
           _locateWatchId = null;
           driverLat = pos.coords.latitude;
           driverLng = pos.coords.longitude;
+          console.log(`[GPS] Driver location set: ${driverLat.toFixed(6)}, ${driverLng.toFixed(6)}`);
           if (driverMarker) map.removeLayer(driverMarker);
           driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map);
           map.setView([driverLat, driverLng], 14);
@@ -1631,6 +2013,7 @@ function computeMatchScore(timeDetourPct, routeDistanceKm) {
       document.getElementById('btnLocate').classList.remove('btn-loc-active');
       driverLat = e.latlng.lat;
       driverLng = e.latlng.lng;
+      console.log(`[MANUAL] Driver location set: ${driverLat.toFixed(6)}, ${driverLng.toFixed(6)}`);
       if (driverMarker) map.removeLayer(driverMarker);
       driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map);
       map.setView(e.latlng, 14);
@@ -1689,38 +2072,134 @@ function computeMatchScore(timeDetourPct, routeDistanceKm) {
         return;
       }
 
+      /* — PHASE 1B: compute return-to-home baseline (for from_campus mode) — */
+      let baselineDurationFromCampus = null;
+      let baselineDistanceFromCampus = null;
+      
+      if (tripType === 'from_campus') {
+        try {
+          setStatus('Computing return baseline (campus → home)…', 'loading');
+          const returnUrl = `${OSRM_BASE}/${CAMPUS_LNG},${CAMPUS_LAT};${driverLng},${driverLat}?overview=false&geometries=geojson`;
+          const returnRes = await fetch(returnUrl, { signal: _findAbort.signal });
+          if (returnRes.ok) {
+            const returnData = await returnRes.json();
+            if (returnData?.routes?.[0]) {
+              baselineDurationFromCampus = returnData.routes[0].duration / 60;
+              baselineDistanceFromCampus = returnData.routes[0].distance / 1000;
+              console.log(`[${tripType}] Phase 1B: Actual return baseline (Campus → Home): ${baselineDurationFromCampus.toFixed(1)}min / ${baselineDistanceFromCampus.toFixed(2)}km`);
+            }
+          }
+        } catch (err) {
+          console.warn(`[${tripType}] Phase 1B failed, will use Phase 1 as fallback:`, err);
+        }
+      }
+
       /* — PHASE 2: scan passengers — */
       setStatus('Scanning for nearby passengers…', 'loading');
       const accepted  = [];
+      const skipped   = [];  // Track passengers too far from route
       const signal    = _findAbort.signal;
+      
+      // Baseline depends on trip type:
+      // - to_campus: driver → campus (from Phase 1)
+      // - from_campus: campus → driver (from Phase 1B if available, else Phase 1 as fallback)
+      let baselineDurationBothModes, baselineDistanceBothModes;
+      
+      if (tripType === 'from_campus') {
+        // Use actual computed return baseline if available
+        if (baselineDurationFromCampus !== null && baselineDistanceFromCampus !== null) {
+          baselineDurationBothModes = baselineDurationFromCampus;
+          baselineDistanceBothModes = baselineDistanceFromCampus;
+          console.log(`[${tripType}] Using Phase 1B baseline (Campus → Home): ${baselineDurationBothModes.toFixed(1)}min / ${baselineDistanceBothModes.toFixed(2)}km`);
+        } else {
+          // Fallback to Phase 1 if Phase 1B failed
+          baselineDurationBothModes = originalDuration || 0;
+          baselineDistanceBothModes = originalDistanceKm || 0;
+          console.log(`[${tripType}] Using Phase 1 fallback (Driver → Campus): ${baselineDurationBothModes.toFixed(1)}min / ${baselineDistanceBothModes.toFixed(2)}km`);
+        }
+      } else {
+        // to_campus: baseline is driver → campus (from Phase 1)
+        baselineDurationBothModes = originalDuration || 0;
+        baselineDistanceBothModes = originalDistanceKm || 0;
+        console.log(`[${tripType}] Baseline (Driver → Campus): ${baselineDurationBothModes.toFixed(1)}min / ${baselineDistanceBothModes.toFixed(2)}km`);
+      }
+      
       try {
-        for (const p of getSearchablePassengers()) {
+        const searchablePassengers = getSearchablePassengers();
+        console.log(`[${tripType}] Scanning ${searchablePassengers.length} passengers for route fit...`);
+        for (const p of searchablePassengers) {
           if (signal.aborted) break;
-          const d = distToPolyline(p.lat, p.lng, routeCoords);
-          if (d > 3) continue;
+          // Use trip-type aware coordinates
+          const pickupLat = p.pickupLat !== undefined ? p.pickupLat : p.lat;
+          const pickupLng = p.pickupLng !== undefined ? p.pickupLng : p.lng;
+          const destLat = p.destinationLat !== undefined ? p.destinationLat : CAMPUS_LAT;
+          const destLng = p.destinationLng !== undefined ? p.destinationLng : CAMPUS_LNG;
+          const d = distToPolyline(pickupLat, pickupLng, routeCoords);
+          if (d > 2) {
+            console.log(`[${tripType}] Skipped ${p.fullName} - too far from route (${d.toFixed(1)}km)`);
+            skipped.push({ ...p, distanceFromRoute: d, score: 100 });  // Red score (100) for skipped
+            continue;
+          }
           let timeDetourPct = 0;
           let distanceDetourPct = 0;
           let pickupDistanceKm = null;
           let pickupDurationMin = null;
           try {
-            const pickupUrl = `${OSRM_BASE}/${driverLng},${driverLat};${p.lng},${p.lat};${CAMPUS_LNG},${CAMPUS_LAT}?overview=false&geometries=geojson`;
+            // Get baseline and intermediate destinations based on trip type
+            let baselineUrl;
+            let pickupUrl;
+            let baselineDuration;
+            let baselineDistance;
+            
+            if (tripType === 'from_campus') {
+              // From campus: Use unified baseline (same for all students)
+              const studentDestLat = p.destinationLat;
+              const studentDestLng = p.destinationLng;
+              
+              baselineDuration = baselineDurationBothModes;
+              baselineDistance = baselineDistanceBothModes;
+              
+              // With pickup: CAMPUS → student destination → driver home
+              pickupUrl = `${OSRM_BASE}/${CAMPUS_LNG},${CAMPUS_LAT};${studentDestLng},${studentDestLat};${driverLng},${driverLat}?overview=false&geometries=geojson`;
+              
+              console.log(`[${tripType}] ${p.fullName} → ${p.destination}: Campus(${CAMPUS_LAT.toFixed(4)},${CAMPUS_LNG.toFixed(4)}) → Dest(${studentDestLat.toFixed(4)},${studentDestLng.toFixed(4)}) → Home(${driverLat.toFixed(4)},${driverLng.toFixed(4)}):`, pickupUrl);
+            } else {
+              // To campus: use same unified baseline
+              baselineDuration = baselineDurationBothModes;
+              baselineDistance = baselineDistanceBothModes;
+              
+              // With pickup: driver → passenger location → campus
+              // Use the already-computed pickupLat/pickupLng which have fallback values
+              pickupUrl = `${OSRM_BASE}/${driverLng},${driverLat};${pickupLng},${pickupLat};${CAMPUS_LNG},${CAMPUS_LAT}?overview=false&geometries=geojson`;
+              
+              console.log(`[${tripType}] ${p.fullName} from campus (baseline: ${baselineDuration.toFixed(1)}min):`, pickupUrl);
+            }
+            
+            // Fetch with-pickup route
             const pickupRes = await fetch(pickupUrl, { signal });
             if (pickupRes.ok) {
               const pickupData = await pickupRes.json();
-              pickupDurationMin = pickupData?.routes?.[0]?.duration ? (pickupData.routes[0].duration / 60) : null;
-              if (pickupDurationMin !== null && originalDuration && originalDuration > 0) {
-                timeDetourPct = Math.max(0, ((pickupDurationMin - originalDuration) / originalDuration) * 100);
+              if (pickupData?.routes?.[0]) {
+                const withPickupDuration = pickupData.routes[0].duration / 60;
+                const withPickupDistance = pickupData.routes[0].distance / 1000;
+                pickupDurationMin = withPickupDuration;
+                pickupDistanceKm = withPickupDistance;
+                
+                if (baselineDuration && baselineDuration > 0) {
+                  timeDetourPct = Math.max(0, ((withPickupDuration - baselineDuration) / baselineDuration) * 100);
+                }
+                if (baselineDistance && baselineDistance > 0) {
+                  distanceDetourPct = Math.max(0, ((withPickupDistance - baselineDistance) / baselineDistance) * 100);
+                }
+                console.log(`[${tripType}] ${p.fullName}: baseline=${baselineDuration.toFixed(1)}min/${baselineDistance.toFixed(2)}km → with pickup=${withPickupDuration.toFixed(1)}min/${withPickupDistance.toFixed(2)}km → detour: ${timeDetourPct.toFixed(0)}% time / ${distanceDetourPct.toFixed(0)}% distance`);
               }
-              if (pickupData?.routes?.[0]?.distance && originalDistanceKm !== null && originalDistanceKm > 0) {
-              pickupDistanceKm = pickupData.routes[0].distance / 1000;
-              distanceDetourPct = Math.max(0,((pickupDistanceKm - originalDistanceKm) / originalDistanceKm)*100);
-              }
-              } 
-            }catch {
-              distanceDetourPct = 0;
-              timeDetourPct = 0;
-              }
-          // Keep all passengers within 2km, now with a real detour percentage when available.
+            }
+          } catch (err) {
+            console.error(`[${tripType}] OSRM error for ${p.fullName}:`, err);
+            distanceDetourPct = 0;
+            timeDetourPct = 0;
+          }
+          // Keep all passengers within 3km distance to route, now with detour calculations
           const score = computeMatchScore(timeDetourPct, distanceDetourPct);
           accepted.push({ ...p, distanceDetourPct, timeDetourPct, pickupDistanceKm, pickupDurationMin, score });
         }
@@ -1729,18 +2208,29 @@ function computeMatchScore(timeDetourPct, routeDistanceKm) {
           // Sort passengers by unified score (lower = better)
           accepted.sort((a, b) => a.score - b.score);
 
-          renderPassengerMarkers(accepted);
+          // Combine accepted and skipped for display (both modes)
+          const allPassengers = [...accepted, ...skipped.sort((a, b) => (a.distanceFromRoute || 0) - (b.distanceFromRoute || 0))];
+
+          renderPassengerMarkers(allPassengers);
+          
           // Keep framing stable: fit to route with a zoom cap to avoid excessive zoom-out.
           map.fitBounds(routeLine.getBounds(), { padding: [54, 54], maxZoom: 14 });
           clampDriverMapZoom(12);
           // Count only good matches for clarity (score < 25)
           const goodMatches = accepted.filter(p => p.score < 25).length;
 
-          const msg = `Found ${goodMatches} good matches (of ${accepted.length} total)`;
+          const msg = `Found ${goodMatches} good matches (of ${accepted.length} total)${skipped.length > 0 ? ` + ${skipped.length} too far` : ''}`;
           setStatus(msg, goodMatches > 0 ? 'success' : 'info');
         } else if (!signal.aborted) {
-          setPassengerPanelEmpty('No nearby passengers in your area. Try adjusting your location or destination.', 'Empty');
-          setStatus('No nearby passengers found', 'info');
+          // If no accepted passengers, but we have skipped ones, display them as red dots
+          if (tripType === 'from_campus' && skipped.length > 0) {
+            renderPassengerMarkers(skipped);
+            setPassengerPanelEmpty(`Showing ${skipped.length} students too far from your route (2km+). Adjust your route or destination to include them.`, 'Too Far');
+            setStatus(`Only found ${skipped.length} students, but they're too far from your route`, 'info');
+          } else {
+            setPassengerPanelEmpty('No nearby passengers in your area. Try adjusting your location or destination.', 'Empty');
+            setStatus('No nearby passengers found', 'info');
+          }
           btnLoading('btnFindPassengers', false);
           return;
         }
@@ -1754,20 +2244,20 @@ function computeMatchScore(timeDetourPct, routeDistanceKm) {
     /* =====================================================================
        INIT  — auto-detect driver location on page load
     ===================================================================== */
+    setTripType('to_campus'); // Initialize to 'to campus' mode
     loadRequestedPassengerIds();
     renderJoinRequests();
     renderDriverRideSummary();
-    maybeActivateDriverRideAndRedirect();
     window.addEventListener('storage', event => {
       if (event.key === JOIN_REQUEST_STORAGE_KEY || event.key === REQUEST_STORAGE_KEY || event.key === RIDE_PUBLISH_STORAGE_KEY) {
-        if (maybeActivateDriverRideAndRedirect()) return;
         renderJoinRequests();
         renderDriverRideSummary();
         if (selectedPassenger) renderPassengerDetails(selectedPassenger);
       }
-      if (event.key === ACTIVE_RIDE_STORAGE_KEY) {
-        maybeActivateDriverRideAndRedirect();
+      // Refresh passenger details if a passenger toggles visibility on/off
+      if (event.key === PASSENGER_VISIBILITY_KEY) {
+        if (selectedPassenger) renderPassengerDetails(selectedPassenger);
       }
     });
-    locateDriver();
+    // locateDriver();  // Commented out: users should explicitly click 'Get Location' button instead
   
