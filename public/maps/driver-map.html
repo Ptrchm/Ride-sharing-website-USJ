@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>USJ RideShare — Driver View</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  
+<link rel="stylesheet" href="driver-map.css"></head>
+<body>
+
+  <!-- ================================================================
+       HEADER
+  ================================================================ -->
+  <header class="site-header" role="banner" aria-label="Main navigation">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="USJ RideShare">
+        <span class="brand-name">USJ RideShare</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="nav-link active" href="driver-map.html">Driver Map</a>
+        <a class="nav-link" href="passenger-map.html">Passenger Map</a>
+        <a class="nav-link" href="my-map.html">My Map</a>
+      </nav>
+
+      <span class="role-pill">Driver Mode</span>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       CONTROLS CARD
+  ================================================================ -->
+  <div class="controls" role="region" aria-label="Driver controls">
+    <div class="controls-header">
+      <div class="controls-icon">
+        <!-- steering wheel icon -->
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v7M4.93 4.93l4.95 4.95M2 12h7M4.93 19.07l4.95-4.95M12 22v-7M19.07 19.07l-4.95-4.95M22 12h-7M19.07 4.93l-4.95 4.95"/>
+        </svg>
+      </div>
+      <span class="controls-title">Driver Controls</span>
+      <button class="controls-collapse-btn" id="driverControlsCollapseBtn" type="button" aria-label="Toggle driver controls">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <!-- STEP 1 -->
+    <span class="step-label">Step 1 — Set your location</span>
+    <!-- Compact fallback row (refresh or manual placement) -->
+    <div class="loc-fallback">
+      <button class="btn btn-outline" id="btnLocate" onclick="locateDriver()">
+        <svg class="btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
+          <circle cx="12" cy="12" r="9"/>
+        </svg>
+        <span class="btn-spinner"></span>
+        <span class="btn-label">Get Location</span>
+      </button>
+      <button class="btn btn-outline" id="btnClickPlace" onclick="enableClick()">
+        <svg class="btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4.5 8-11.8A8 8 0 0 0 12 2a8 8 0 0 0-8 8.2c0 7.3 8 11.8 8 11.8z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span class="btn-label">Place Manually</span>
+      </button>
+    </div>
+
+    <!-- TRIP TYPE MODE SELECTION -->
+    <div class="controls-sep"></div>
+    <span class="step-label">Trip Type</span>
+    <div class="trip-type-row">
+      <button class="btn btn-outline" id="tripTypeToClicked" onclick="console.log('To clicked'); setTripType('to_campus')" type="button">To Campus</button>
+      <button class="btn btn-outline" id="tripTypeFromClicked" onclick="console.log('From clicked'); setTripType('from_campus')" type="button">From Campus</button>
+    </div>
+    <div class="trip-type-note" id="tripTypeNote">Pick up passengers from various locations heading TO campus.</div>
+
+    <!-- FIND PASSENGERS — always visible, unlocks when location is ready -->
+    <div class="controls-sep"></div>
+    <span class="step-label" id="stepAction">Step 2 — Find Passengers</span>
+
+    <button class="btn btn-primary" id="btnFindPassengers" onclick="findPassengers()" disabled>
+      <svg class="btn-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.87"/>
+      </svg>
+      <span class="btn-spinner"></span>
+      <span class="btn-label">Find Passengers</span>
+    </button>
+
+    <div class="controls-sep"></div>
+    <span class="step-label">Create & Publish Ride</span>
+
+    <button class="btn btn-outline" id="btnCreateRide" onclick="toggleCreateRidePanel()" disabled>
+      <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7h18M6 12h12M9 17h6"/>
+      </svg>
+      <span class="btn-label">Create Ride</span>
+    </button>
+
+    <div class="create-ride-panel hidden" id="createRidePanel">
+      <button class="panel-back-btn" onclick="toggleCreateRidePanel()" aria-label="Back to main controls" style="margin-bottom: 12px;">
+        <svg width="5" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 1L1 5l4 4"/>
+        </svg>
+      </button>
+      <div class="create-mode-row">
+        <button class="btn btn-outline create-mode-btn active" id="createModeAutoBtn" type="button" onclick="setCreateMode('automatic')">Automatic</button>
+        <button class="btn btn-outline create-mode-btn" id="createModeManualBtn" type="button" onclick="setCreateMode('manual')">Manual</button>
+      </div>
+
+      <div id="autoRouteBuilder">
+        <div class="ride-help">Automatic routes to campus (multiple options). Select one to publish.</div>
+        <div class="route-options" id="autoRouteOptions"></div>
+      </div>
+
+      <div class="hidden" id="manualRouteBuilder">
+        <div class="ride-help">Manual route uses your location as start and USJ campus as destination. You can add stops in between.</div>
+        <div class="manual-actions">
+          <button class="btn btn-outline" type="button" onclick="enableManualPointPick('stop')">Add Stop</button>
+          <button class="btn btn-outline" type="button" onclick="clearManualRoutePoints()">Clear Route</button>
+        </div>
+      </div>
+
+        <div class="ride-time-box">
+          <label class="ride-time-label" for="rideCapacity">Available Seats</label>
+          <input class="ride-time-input" id="rideCapacity" type="number" min="1" step="1" required oninput="setRideCapacity(this.value)" onchange="setRideCapacity(this.value)"/>
+          <div class="ride-time-summary" id="rideCapacitySummary">Set seat capacity before publishing your ride.</div>
+        </div>
+
+        <div class="ride-time-box">
+          <label class="ride-time-label" for="ridePricePerSeat">Price per Seat</label>
+          <input class="ride-time-input" id="ridePricePerSeat" type="number" min="0" step="0.01" required oninput="setRidePrice(this.value)" onchange="setRidePrice(this.value)"/>
+          <div class="ride-time-summary" id="ridePriceSummary">Set a positive price before publishing.</div>
+        </div>
+
+        <div class="ride-time-box">
+          <label class="ride-time-label" for="rideDepartureDate">Departure Date</label>
+          <input class="ride-time-input" id="rideDepartureDate" type="date" required oninput="setRideDate(this.value)" onchange="setRideDate(this.value)"/>
+          <div class="ride-time-summary" id="rideDateSummary">Your ride date is not set yet. Choose a departure date.</div>
+        </div>
+
+        <div class="ride-time-box">
+          <label class="ride-time-label" for="rideDepartureTime">Departure Time</label>
+          <input class="ride-time-input" id="rideDepartureTime" type="time" required oninput="setRideTime(this.value)" onchange="setRideTime(this.value)"/>
+          <div class="ride-time-summary" id="rideTimeSummary">Your ride time is not set yet. Choose a departure time.</div>
+        </div>
+
+      <button class="btn btn-primary" id="btnPublishRide" type="button" onclick="publishRide()" disabled>
+        <span class="btn-label">Publish Ride</span>
+      </button>
+      <div class="publish-note" id="createRideNote">Set your location first, then create a route.</div>
+      <div class="publish-note" id="startRideNote">Passengers: 0 / 0 · Seats left: 0</div>
+    </div>
+
+    <div class="controls-sep"></div>
+
+    <a href="/" class="btn btn-home">
+      <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/>
+        <path d="M9 21V12h6v9"/>
+      </svg>
+      Return to Home
+    </a>
+  </div>
+
+  <aside class="passenger-rank-panel" id="passengerRankPanel" role="complementary" aria-label="Nearby passengers ranking">
+    <div class="panel-head" id="panelHeadList">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="panel-head-title">Nearby Passengers</span>
+        <span class="panel-head-badge" id="passengerRankCount">0</span>
+      </div>
+      <button class="panel-head-collapse-btn" id="passengerRankCollapseBtn" aria-label="Toggle nearby passengers panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="panel-head hidden" id="panelHeadDetails">
+      <button class="panel-back-btn" id="passengerDetailBackBtn" aria-label="Back to passenger list" onclick="backToPassengerList()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="panel-head-title">Passenger Details</span>
+        <span class="panel-head-badge" id="passengerDetailsBadge">Selected</span>
+      </div>
+      <button class="panel-head-collapse-btn" id="passengerDetailCollapseBtn" aria-label="Toggle passenger details panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="rank-list" id="passengerListView">
+      <p class="panel-empty" id="passengerRankEmpty">Run Find Passengers to rank nearby passengers by route-fit detour.</p>
+      <div id="passengerRankRows"></div>
+    </div>
+
+    <div class="panel-body hidden" id="passengerDetailsView">
+      <div class="panel-stack">
+        <div class="detail-card">
+          <span class="detail-label">Full Name</span>
+          <div class="detail-value" id="panelPassengerName"></div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Phone Number</span>
+          <a class="detail-value panel-phone" id="panelPassengerPhoneLink" href="#">
+            <span id="panelPassengerPhone"></span>
+          </a>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label" id="panelLocationLabel">Destination</span>
+          <div class="detail-value" id="panelPassengerDestination"></div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Distance & Time after pickup</span>
+          <div class="detail-value" id="panelPassengerFit"></div>
+        </div>
+
+        <div class="panel-actions">
+          <a class="btn btn-outline panel-btn" id="panelCallBtn" href="#">Call</a>
+          <button class="btn btn-primary panel-btn" id="panelRequestBtn" type="button" onclick="requestSelectedPassenger()">Request Passenger</button>
+        </div>
+
+        <p class="panel-note" id="panelRequestNote"></p>
+      </div>
+    </div>
+  </aside>
+
+  <aside class="request-inbox" id="requestInbox" role="complementary" aria-label="Join requests">
+    <div class="panel-head">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="panel-head-title">Join Requests</span>
+        <span class="panel-head-badge" id="joinRequestCount">0</span>
+      </div>
+      <button class="panel-head-collapse-btn" id="requestInboxCollapseBtn" aria-label="Toggle join requests panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="request-list" id="joinRequestList">
+      <p class="panel-empty">Passenger join requests will appear here after they use Request to Join.</p>
+    </div>
+  </aside>
+
+  <!-- Status pill -->
+  <div id="statusBox" role="status" aria-live="polite">
+    <span id="statusDot"></span>
+    <span id="statusText">Set your location to find nearby passengers</span>
+  </div>
+
+  <!-- Map -->
+  <div id="map" role="main" aria-label="Map"></div>
+
+  <!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  
+
+<script src="xano-client.js"></script>
+<script src="driver-map.js"></script></body>
+</html>

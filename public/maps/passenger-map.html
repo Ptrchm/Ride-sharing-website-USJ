@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>USJ RideShare — Find a Ride</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="passenger-map.css">
+
+  <!-- ================================================================
+       HEADER
+  ================================================================ -->
+  <header class="site-header" role="banner" aria-label="Main navigation">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="USJ RideShare">
+        <span class="brand-name">USJ RideShare</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="nav-link" href="driver-map.html">Driver Map</a>
+        <a class="nav-link active" href="passenger-map.html">Passenger Map</a>
+        <a class="nav-link" href="my-map.html">My Map</a>
+      </nav>
+
+      <span class="role-pill">Passenger Mode</span>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       LEFT COLUMN — controls + drivers panel (stacked, no overlap)
+  ================================================================ -->
+  <div class="left-col">
+
+    <!-- CONTROLS CARD -->
+    <div class="controls" role="region" aria-label="Passenger controls">
+      <div class="controls-header">
+        <div class="controls-icon">
+          <!-- person / passenger icon -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+               stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="7" r="4"/>
+            <path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2"/>
+          </svg>
+        </div>
+        <span class="controls-title">Passenger Controls</span>
+        <button class="controls-collapse-btn" id="passengerControlsCollapseBtn" type="button" aria-label="Toggle passenger controls">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- STEP 1 -->
+      <span class="step-label">Step 1 — Set your location</span>
+      <!-- Compact fallback row (refresh or manual placement) -->
+      <div class="loc-fallback">
+        <button class="btn btn-outline" id="btnLocate" onclick="locatePassenger()">
+          <svg class="btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
+            <circle cx="12" cy="12" r="9"/>
+          </svg>
+          <span class="btn-spinner"></span>
+          <span class="btn-label">Get Location</span>
+        </button>
+        <button class="btn btn-outline" id="btnClickPlace" onclick="enableClick()">
+          <svg class="btn-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4.5 8-11.8A8 8 0 0 0 12 2a8 8 0 0 0-8 8.2c0 7.3 8 11.8 8 11.8z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span class="btn-label">Place Manually</span>
+        </button>
+      </div>
+
+      <div class="controls-sep"></div>
+
+      <!-- TRIP TYPE SELECTION -->
+      <span class="step-label">Trip Type</span>
+      
+      <div class="trip-type-row">
+        <button class="btn btn-outline active" id="tripTypeToClicked" onclick="setTripType('to_campus')" type="button">To Campus</button>
+        <button class="btn btn-outline" id="tripTypeFromClicked" onclick="setTripType('from_campus')" type="button">From Campus</button>
+      </div>
+
+      <div class="trip-type-note" id="tripTypeNote">Select where you want to go from where you are.</div>
+
+      <!-- STEP 2 (revealed after location is set) -->
+      <span class="step-label" id="stepAction">Step 2 — Find a ride</span>
+
+      <button class="btn btn-primary" id="btnFindRide" onclick="findRide()" disabled>
+        <svg class="btn-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <span class="btn-spinner"></span>
+        <span class="btn-label">Find Ride</span>
+      </button>
+
+      <div class="controls-sep"></div>
+
+      <span class="step-label">Passenger Status</span>
+
+      <button class="btn btn-outline" id="btnVisibilityToggle" onclick="toggleLookingForRide()">
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span class="btn-label" id="visibilityToggleLabel">Looking for Ride: OFF</span>
+      </button>
+
+      <div class="toggle-note" id="visibilityNote">Drivers cannot see you right now. This setting is independent from Find Ride.</div>
+
+      <div class="controls-sep"></div>
+
+      <a href="/" class="btn btn-home">
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/>
+          <path d="M9 21V12h6v9"/>
+        </svg>
+        Return to Home
+      </a>
+    </div>
+
+  </div><!-- /.left-col -->
+
+  <!-- RIDE REQUESTS PANEL — bottom-left -->
+  <div class="panel request-panel" role="complementary" aria-label="Ride requests">
+    <div class="panel-header">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="panel-title">Requests & Updates</span>
+        <span class="panel-count" id="requestCount">0</span>
+      </div>
+      <button class="panel-collapse-btn" id="requestPanelCollapseBtn" aria-label="Toggle requests panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+    <div id="requestList">
+      <div class="panel-empty">Driver requests and ride updates will appear here.</div>
+    </div>
+  </div>
+
+  <!-- UNIFIED NEARBY DRIVERS PANEL -->
+  <aside class="driver-nearby-panel" id="driverNearbyPanel" role="complementary" aria-label="Nearby drivers">
+    <!-- List View Header -->
+    <div class="panel-head" id="panelHeadList">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="panel-head-title">Nearby Drivers</span>
+        <span class="panel-head-badge" id="driverNearbyCount">0</span>
+      </div>
+      <button class="panel-head-collapse-btn" id="driverNearbyCollapseBtn" aria-label="Toggle nearby drivers panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Details View Header -->
+    <div class="panel-head hidden" id="panelHeadDetails">
+      <button class="panel-back-btn" id="driverDetailBackBtn" aria-label="Back to driver list" onclick="backToDriverList()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+        <span class="panel-head-title">Driver Details</span>
+        <span class="panel-head-badge" id="driverDetailsBadge">Selected</span>
+      </div>
+      <button class="panel-head-collapse-btn" id="driverDetailCollapseBtn" aria-label="Toggle driver details panel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <!-- List View Content -->
+    <div class="drivers-list" id="driverListView">
+      <div class="time-filter-bar">
+        <span class="time-filter-label">Before</span>
+        <input class="time-filter-input" id="rideTimeFilter" type="time" aria-label="Show rides before selected time" oninput="setRideTime(this.value)"/>
+        <button class="time-filter-clear" type="button" onclick="clearRideTimeFilter()">Clear</button>
+      </div>
+      <p class="time-filter-note" id="rideTimeFilterNote">Rides are sorted by arrival time (earliest to latest). Unscheduled rides appear last.</p>
+      <p class="panel-empty" id="driverListEmpty">Press <strong>Find Ride</strong> to see available drivers nearby.</p>
+      <div id="driverRows"></div>
+    </div>
+
+    <!-- Details View Content -->
+    <div class="panel-body hidden" id="driverDetailsView">
+      <div class="panel-stack">
+        <div class="detail-card">
+          <span class="detail-label">Full Name</span>
+          <div class="detail-value" id="panelDriverName"></div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Phone Number</span>
+          <a class="detail-value panel-phone" id="panelDriverPhoneLink" href="#">
+            <span id="panelDriverPhone"></span>
+          </a>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Car Name</span>
+          <div class="detail-value" id="panelDriverCar"></div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">License Plate</span>
+          <div class="detail-value" id="panelDriverPlate"></div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Distance and Time After Pickup</span>
+          <div class="detail-value" id="panelDriverFit"></div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Seats</span>
+          <div class="detail-value" id="panelDriverSeats">Seats left: -</div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Passenger Count</span>
+          <div class="detail-value" id="panelPassengerCount">0</div>
+        </div>
+
+        <div class="detail-card">
+          <span class="detail-label">Your Pickup Position</span>
+          <div class="detail-value" id="panelPickupPosition">Not assigned yet</div>
+        </div>
+
+        <div class="panel-actions">
+          <a class="btn btn-outline panel-btn" id="panelDriverCallBtn" href="#">Call</a>
+          <button class="btn btn-primary panel-btn" id="panelJoinBtn" type="button" onclick="requestSelectedDriver()">Request to Join</button>
+        </div>
+
+        <p class="panel-note" id="panelJoinNote"></p>
+      </div>
+    </div>
+  </aside>
+
+
+  <!-- Status pill -->
+  <div id="statusBox" role="status" aria-live="polite">
+    <span id="statusDot"></span>
+    <span id="statusText">Set your location to find nearby drivers</span>
+  </div>
+
+  <!-- Map -->
+  <div id="map" role="main" aria-label="Map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  
+
+  
+<script src="xano-client.js"></script>
+<script src="passenger-map.js"></script></body>
+</html>

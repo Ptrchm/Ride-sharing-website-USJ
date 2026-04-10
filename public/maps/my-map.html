@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>USJ RideShare - Active Ride</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="my-map.css">
+</head>
+<body>
+  <header class="site-header" role="banner" aria-label="Main navigation">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="USJ RideShare">
+        <span class="brand-name">USJ RideShare</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="nav-link" href="driver-map.html">Driver Map</a>
+        <a class="nav-link" href="passenger-map.html">Passenger Map</a>
+        <a class="nav-link active" href="my-map.html">My Map</a>
+      </nav>
+
+      <span class="role-pill" id="rolePill">Active Ride</span>
+    </div>
+  </header>
+
+  <div class="ride-info-panel" id="rideInfoPanel" role="region" aria-label="Active ride information">
+    <div class="panel-header">
+      <span class="panel-title">Active Ride</span>
+      <button class="panel-collapse-btn" id="rideInfoCollapseBtn" type="button" aria-label="Toggle ride info">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="panel-content">
+      <div class="ride-type-box">
+        <span class="ride-type-label">Trip Type</span>
+        <span class="ride-type-value" id="rideTypeValue">To Campus</span>
+      </div>
+
+      <div class="ride-stats-row">
+        <div class="ride-stat">
+          <span class="stat-label">Passengers</span>
+          <span class="stat-value" id="passengerCount">0</span>
+        </div>
+        <div class="ride-stat">
+          <span class="stat-label">Seat Capacity</span>
+          <span class="stat-value" id="capacityValue">-</span>
+        </div>
+      </div>
+
+      <div class="ride-stats-row">
+        <div class="ride-stat">
+          <span class="stat-label">Departure</span>
+          <span class="stat-value" id="departureValue">-</span>
+        </div>
+        <div class="ride-stat">
+          <span class="stat-label">Destination</span>
+          <span class="stat-value" id="destinationValue">-</span>
+        </div>
+      </div>
+
+      <div class="ride-stats-row">
+        <div class="ride-stat">
+          <span class="stat-label">Price</span>
+          <span class="stat-value" id="priceValue">-</span>
+        </div>
+        <div class="ride-stat">
+          <span class="stat-label">Stops</span>
+          <span class="stat-value" id="stopsValue">-</span>
+        </div>
+      </div>
+
+      <div class="ride-stats-row">
+        <div class="ride-stat">
+          <span class="stat-label">Est. Time</span>
+          <span class="stat-value" id="estTimeValue">-</span>
+        </div>
+        <div class="ride-stat">
+          <span class="stat-label">Distance</span>
+          <span class="stat-value" id="distanceValue">-</span>
+        </div>
+      </div>
+
+      <div class="ride-time-box">
+        <span class="ride-time-label">Departure Time</span>
+        <span class="ride-time-value" id="departureTimeValue">-</span>
+      </div>
+
+      <div class="panel-separator"></div>
+
+      <div class="participants-section">
+        <span class="section-title">Participants</span>
+
+        <div class="participant-card" id="driverCard" style="display: none;">
+          <span class="participant-label">Driver</span>
+          <div class="participant-details">
+            <span class="participant-name" id="driverName">-</span>
+            <span class="participant-car" id="driverCar">-</span>
+          </div>
+          <a class="btn btn-compact btn-outline" id="driverCallBtn" href="#" aria-label="Call driver">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Call
+          </a>
+        </div>
+
+        <div id="passengersList"></div>
+      </div>
+
+      <div class="panel-separator"></div>
+
+      <div class="action-buttons">
+        <button class="btn btn-primary" id="btnStartRide" type="button" onclick="startRide()" style="display: none;">
+          <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12l5 5 9-9"/>
+          </svg>
+          <span class="btn-label">Start Ride</span>
+        </button>
+        <button class="btn btn-primary" id="btnConfirmPickup" type="button" onclick="confirmPickup()" style="display: none;">
+          <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span class="btn-label">Confirm Pickup</span>
+        </button>
+        <button class="btn btn-primary" id="btnEndRide" type="button" onclick="endRide()" style="display: none;">
+          <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12h8"/>
+          </svg>
+          <span class="btn-label">End Ride</span>
+        </button>
+        <button class="btn btn-outline" id="btnCancelRide" type="button" onclick="cancelRide()">
+          <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          <span class="btn-label">Cancel Ride</span>
+        </button>
+      </div>
+
+      <p class="panel-note" id="rideInfoNote">Ride data will load from Xano.</p>
+    </div>
+  </div>
+
+  <div id="statusBox" role="status" aria-live="polite">
+    <span id="statusDot"></span>
+    <span id="statusText">Loading active ride...</span>
+  </div>
+
+  <div id="map" role="main" aria-label="Active ride tracking map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="xano-client.js"></script>
+  <script src="my-map.js"></script>
+</body>
+</html>
