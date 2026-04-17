@@ -117,6 +117,11 @@
     return request(API_AUTH, "accepted_ride", { auth: true });
   }
 
+  async function updateRoute(id, data) {
+    // PATCH a route record (used to persist ordered pickup points, distances and geometry)
+    return request(API_CARPOOLING, `route/${id}`, { method: "PATCH", body: data, auth: true });
+  }
+
   async function logEvent(action, metadata) {
     // Best-effort: do not block UI if logs group isn't configured.
     try {
@@ -152,6 +157,7 @@
     cancelRideRequest,
     driverCancelRideRequest,
     getAcceptedRides,
+    updateRoute,
     logEvent,
   };
 })();

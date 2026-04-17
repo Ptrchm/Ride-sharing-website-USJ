@@ -1,4 +1,4 @@
-﻿// Passenger Map (production): uses Xano as source of truth.
+// Passenger Map (production): uses Xano as source of truth.
 // - Shows drivers only when they have published a valid route
 // - Lets passengers set presence (isLookingForRide) only with a location
 // - Lets passengers request to join a route (ride_request)
@@ -10,6 +10,7 @@ const CAMPUS_LAT = 33.8654840;
 const CAMPUS_LNG = 35.5631210;
 const CAMPUS = { lat: CAMPUS_LAT, lng: CAMPUS_LNG };
 const LOCATION_SYNC_MS = 15000;
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving';
 
 /* =====================================================================
    STATE
@@ -71,6 +72,34 @@ function haversineKm(a, b) {
   const s2 = Math.sin(dLng / 2);
   const aa = s1 * s1 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * s2 * s2;
   return 2 * R * Math.asin(Math.sqrt(aa));
+}
+
+/* Geometric filtering: minimum distance from point to polyline */
+function distToPolyline(lat, lng, coords) {
+  if (!Array.isArray(coords) || coords.length < 2) return Infinity;
+  let minDist = Infinity;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const d = pointToSegmentDist(lat, lng, p1[0], p1[1], p2[0], p2[1]);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
+}
+
+function pointToSegmentDist(lat, lng, lat1, lng1, lat2, lng2) {
+  const dx = lat2 - lat1;
+  const dy = lng2 - lng1;
+  if (dx === 0 && dy === 0) return haversineKm({ lat, lng }, { lat: lat1, lng: lng1 });
+  const t = Math.max(0, Math.min(1, ((lat - lat1) * dx + (lng - lng1) * dy) / (dx * dx + dy * dy)));
+  const closeLat = lat1 + t * dx;
+  const closeLng = lng1 + t * dy;
+  return haversineKm({ lat, lng }, { lat: closeLat, lng: closeLng });
+}
+
+/* Detour scoring formula: 75% time + 25% distance */
+function computeMatchScore(timeDetourPct, distanceDetourPct) {
+  return 0.75 * timeDetourPct + 0.25 * distanceDetourPct;
 }
 
 function parseXanoDateToMs(v) {
@@ -238,6 +267,7 @@ async function fetchRoutes() {
     .filter((r) => r.available_seats > 0)
     .filter((r) => me && r.user_id !== me.id); // can't join own ride
 
+  await rankRoutesByDetour();
   renderRoutes();
   return routesCache;
 }
@@ -247,13 +277,106 @@ function clearRouteMarkers() {
   routeMarkers = [];
 }
 
+/* Compute detour scores for all routes using OSRM */
+async function rankRoutesByDetour() {
+  if (!Number.isFinite(passengerLat) || !Number.isFinite(passengerLng)) {
+    // No passenger location yet, use simple distance ranking
+    return routesCache.map((r) => ({
+      ...r,
+      kmAway: { lat: passengerLat, lng: passengerLng } ? haversineKm({ lat: passengerLat, lng: passengerLng }, r.start) : null,
+    }));
+  }
+
+  const scoredRoutes = [];
+  const skippedRoutes = [];
+
+  for (const route of routesCache) {
+    try {
+      // For passenger, we rank drivers by how much detour picking up passenger causes
+      // Baseline: driver start → driver end (direct route without passenger)
+      // With detour: driver start → passenger → driver end
+
+      const baselineUrl = `${OSRM_BASE}/${route.start.lng},${route.start.lat};${route.end.lng},${route.end.lat}?overview=false`;
+      const baselineRes = await fetch(baselineUrl);
+      if (!baselineRes.ok) continue;
+
+      const baselineData = await baselineRes.json();
+      if (!baselineData?.routes?.[0]) continue;
+
+      const baselineRoute = baselineData.routes[0];
+      const baselineDurationMin = baselineRoute.duration / 60;
+      const baselineDistanceKm = baselineRoute.distance / 1000;
+
+      // Geometric filter: skip if passenger is >2km from route
+      const coords = route.route_geojson?.coordinates?.map((c) => [c[1], c[0]]) || [];
+      if (coords.length > 0) {
+        const offsetKm = distToPolyline(passengerLat, passengerLng, coords);
+        if (offsetKm > 2) {
+          skippedRoutes.push({ ...route, distanceFromRoute: offsetKm });
+          continue;
+        }
+      }
+
+      // Calculate detour route: driver start → passenger → driver end
+      const detourUrl = `${OSRM_BASE}/${route.start.lng},${route.start.lat};${passengerLng},${passengerLat};${route.end.lng},${route.end.lat}?overview=false`;
+      const detourRes = await fetch(detourUrl);
+      if (!detourRes.ok) {
+        scoredRoutes.push({ ...route, score: 100, timeDetourPct: 0, distanceDetourPct: 0 });
+        continue;
+      }
+
+      const detourData = await detourRes.json();
+      if (!detourData?.routes?.[0]) {
+        scoredRoutes.push({ ...route, score: 100, timeDetourPct: 0, distanceDetourPct: 0 });
+        continue;
+      }
+
+      const detourRoute = detourData.routes[0];
+      const detourDurationMin = detourRoute.duration / 60;
+      const detourDistanceKm = detourRoute.distance / 1000;
+
+      // Calculate detour percentages
+      let timeDetourPct = 0;
+      let distanceDetourPct = 0;
+
+      if (baselineDurationMin > 0) {
+        timeDetourPct = Math.max(0, ((detourDurationMin - baselineDurationMin) / baselineDurationMin) * 100);
+      }
+
+      if (baselineDistanceKm > 0) {
+        distanceDetourPct = Math.max(0, ((detourDistanceKm - baselineDistanceKm) / baselineDistanceKm) * 100);
+      }
+
+      const score = computeMatchScore(timeDetourPct, distanceDetourPct);
+
+      scoredRoutes.push({
+        ...route,
+        score,
+        timeDetourPct,
+        distanceDetourPct,
+        detourDurationMin,
+        detourDistanceKm,
+      });
+
+      // Small delay to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 50));
+    } catch (err) {
+      console.error(`Detour calculation error for route ${route.id}:`, err);
+      scoredRoutes.push({ ...route, score: 100, timeDetourPct: 0, distanceDetourPct: 0 });
+    }
+  }
+
+  // Update routesCache with scores and sort
+  routesCache = [...scoredRoutes, ...skippedRoutes].sort((a, b) => (a.score ?? 100) - (b.score ?? 100));
+}
+
 function renderRoutes() {
   clearRouteMarkers();
 
   const rowsEl = $('driverRows');
   const emptyEl = $('driverListEmpty');
   const countEl = $('driverNearbyCount');
-  if (countEl) countEl.textContent = String(routesCache.length);
+  if (countEl) countEl.textContent = String(routesCache.filter((r) => !r.distanceFromRoute).length);
   if (rowsEl) rowsEl.innerHTML = '';
 
   if (!routesCache.length) {
@@ -261,6 +384,11 @@ function renderRoutes() {
     return;
   }
   if (emptyEl) emptyEl.style.display = 'none';
+
+  // Separate good matches (score < 25) from bad matches and skipped
+  const goodMatches = routesCache.filter((r) => r.score !== undefined && r.score < 25 && !r.distanceFromRoute);
+  const badMatches = routesCache.filter((r) => r.score !== undefined && r.score >= 25 && !r.distanceFromRoute);
+  const skippedRoutes = routesCache.filter((r) => r.distanceFromRoute !== undefined);
 
   const origin = (Number.isFinite(passengerLat) && Number.isFinite(passengerLng)) ? { lat: passengerLat, lng: passengerLng } : null;
   const ranked = routesCache
@@ -291,7 +419,8 @@ function renderRoutes() {
     iconAnchor: [19, 46],
   });
 
-  ranked.slice(0, 50).forEach((r) => {
+  /* Render only good matches in main list */
+  goodMatches.forEach((r) => {
     const m = L.marker([r.start.lat, r.start.lng], { icon: driverIcon }).addTo(map);
     m.on('click', () => showRouteDetails(r));
     routeMarkers.push(m);
@@ -300,18 +429,44 @@ function renderRoutes() {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'driver-row';
-      const dist = r.kmAway != null ? `${r.kmAway.toFixed(2)} km away` : 'Distance unknown';
+      
+      /* Color-code badge based on score */
+      let badgeColor = '#16a34a'; // green for score < 15
+      if (r.score >= 15 && r.score < 25) {
+        badgeColor = '#f59e0b'; // orange for 15 <= score < 25
+      }
+      const badgeStyle = `background: ${badgeColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; min-width: 40px; text-align: center;`;
+      
+      const distInfo = r.detourDistanceKm ? `${r.detourDistanceKm.toFixed(1)} km` : `${haversineKm({ lat: passengerLat, lng: passengerLng }, r.start).toFixed(2)} km away`;
       btn.innerHTML = `
         <div class="driver-row-main">
           <div class="driver-row-name">Driver #${escapeHtml(r.user_id)}</div>
-          <div class="driver-row-sub">${escapeHtml(dist)} · Seats: ${escapeHtml(r.available_seats)}</div>
+          <div class="driver-row-sub">${escapeHtml(distInfo)} · Seats: ${escapeHtml(r.available_seats)}</div>
         </div>
-        <div class="driver-row-meta">$${escapeHtml(r.price_per_seat ?? '-')}/seat</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="${badgeStyle}">${r.score.toFixed(1)}</div>
+          <div class="driver-row-meta">$${escapeHtml(r.price_per_seat ?? '-')}/seat</div>
+        </div>
       `;
       btn.addEventListener('click', () => showRouteDetails(r));
       rowsEl.appendChild(btn);
     }
   });
+
+  /* Show summary if there are bad matches or skipped routes */
+  if (badMatches.length > 0 || skippedRoutes.length > 0) {
+    const summaryRow = document.createElement('div');
+    summaryRow.style.padding = '12px 16px';
+    summaryRow.style.fontSize = '13px';
+    summaryRow.style.color = '#666';
+    summaryRow.style.borderTop = '1px solid #e0e0e0';
+    summaryRow.innerHTML = `
+      ${goodMatches.length} good match${goodMatches.length !== 1 ? 'es' : ''} shown. 
+      ${badMatches.length > 0 ? `${badMatches.length} more with high detour (${(badMatches[0]?.score || 0).toFixed(0)}%+)` : ''}
+      ${skippedRoutes.length > 0 ? `${skippedRoutes.length} more too far from your location` : ''}
+    `;
+    rowsEl.appendChild(summaryRow);
+  }
 }
 
 function renderRouteLine(geojson) {
@@ -338,11 +493,31 @@ function showRouteDetails(r) {
   $('panelDriverPhoneLink').href = '#';
   $('panelDriverCar').textContent = 'Available after acceptance';
   $('panelDriverPlate').textContent = 'Available after acceptance';
-  $('panelDriverFit').textContent = '';
   $('panelDriverSeats').textContent = `Seats left: ${r.available_seats}`;
   $('panelPassengerCount').textContent = '0';
   $('panelPickupPosition').textContent = passengerLat && passengerLng ? 'Your pickup is set' : 'Set your location first';
-  $('panelJoinNote').textContent = '';
+  
+  /* Display detour information if available */
+  if (r.score !== undefined) {
+    const scoreColor = r.score < 15 ? '#16a34a' : r.score < 25 ? '#f59e0b' : '#dc2626';
+    const distText = r.detourDistanceKm ? `${r.detourDistanceKm.toFixed(1)} km` : '—';
+    const timeText = r.detourDurationMin ? `~${r.detourDurationMin.toFixed(0)} min` : '—';
+    
+    $('panelDriverFit').textContent = `${distText} · ${timeText} · Score: ${r.score.toFixed(1)}`;
+    $('panelDriverFit').style.color = scoreColor;
+    
+    if (r.timeDetourPct !== undefined && r.distanceDetourPct !== undefined) {
+      const detourText = `Detour: ${r.timeDetourPct.toFixed(0)}% time · ${r.distanceDetourPct.toFixed(0)}% distance`;
+      $('panelJoinNote').textContent = detourText;
+    }
+  } else if (r.distanceFromRoute !== undefined) {
+    // Skipped route (too far)
+    $('panelDriverFit').textContent = `Too far from your location: ${r.distanceFromRoute.toFixed(1)} km`;
+    $('panelDriverFit').style.color = '#dc2626';
+    $('panelJoinNote').textContent = 'This route is too far from your location for pickup.';
+  } else {
+    $('panelDriverFit').textContent = '';
+  }
 
   renderRouteLine(r.route_geojson);
 }
