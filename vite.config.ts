@@ -9,9 +9,15 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 5173,
     strictPort: false,
+    allowedHosts: true,
     hmr: {
       overlay: false,
     },
+  },
+  preview: {
+    host: "127.0.0.1",
+    port: 4173,
+    allowedHosts: true,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

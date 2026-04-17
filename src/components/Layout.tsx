@@ -4,9 +4,6 @@ import usjLogo from "@/assets/usj-logo.png";
 
 const navItems = [
   { to: "/", label: "Accueil" },
-  { to: "/find-ride", label: "Trouver un trajet" },
-  { to: "/create-ride", label: "Créer un trajet" },
-
   { to: "/profile", label: "Profil" },
   { to: "/feedback", label: "Retour" },
 ];

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
-import { Shield, DollarSign, MapPin } from "lucide-react";
+import { Users, DollarSign, Zap } from "lucide-react";
 
 export default function Home() {
   return (
@@ -41,19 +41,19 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-5">
             {[
               {
-                icon: Shield,
-                title: "Sécurité & Confiance",
-                desc: "Profils et évaluations pour favoriser des trajets sereins entre membres de la communauté USJ.",
+                icon: Users,
+                title: "Accessibilité au transport",
+                desc: "Faciliter le déplacement des étudiants en difficulté de mobilité.",
               },
               {
                 icon: DollarSign,
-                title: "Partage transparent",
-                desc: "Propositions de contribution et calcul automatique pour répartir équitablement les frais.",
+                title: "Réduire vos frais de route",
+                desc: "Partagez vos coûts de carburant et économisez au quotidien.",
               },
               {
-                icon: MapPin,
-                title: "Respect du campus",
-                desc: "Points de prise en charge officiels pour ne pas encombrer les accès et garantir la sécurité.",
+                icon: Zap,
+                title: "Trajets optimisés",
+                desc: "Profitez de notre système de \"matching\" de pointe pour trouver le conducteur idéal.",
               },
             ].map((f) => (
               <article
