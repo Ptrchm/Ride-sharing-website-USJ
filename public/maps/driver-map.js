@@ -1,4 +1,4 @@
-﻿// Driver Map (production): uses Xano as source of truth.
+// Driver Map (production): uses Xano as source of truth.
 // - Shows passengers where isLookingForRide=true
 // - Lets verified drivers create/publish routes to Xano
 // - Shows incoming ride requests and supports accept/decline
@@ -183,6 +183,38 @@ function haversineKm(a, b) {
 }
 
 /* =====================================================================
+   DETOUR MATCHING HELPERS
+===================================================================== */
+
+/* Haversine distance between two lat/lng points (for polyline calculations) */
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/* Minimum distance from a point to any node in a polyline (km) */
+function distToPolyline(lat, lng, poly) {
+  let min = Infinity;
+  for (const pt of poly) {
+    const d = haversine(lat, lng, pt[0], pt[1]);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
+/* Compute detour-based match score */
+function computeMatchScore(timeDetourPct, distanceDetourPct) {
+  // Weighted formula: 75% weight on time, 25% weight on distance
+  return (0.75 * timeDetourPct) + (0.25 * distanceDetourPct);
+}
+
+/* =====================================================================
    MAP INIT
 ===================================================================== */
 function initMap() {
@@ -279,10 +311,12 @@ async function fetchPassengers() {
     .map((p) => ({
       id: p.id ?? p.user_id ?? null,
       user_id: p.user_id ?? null,
-      name: p.name ?? "Passenger",
+      name: p.name ?? p.fullName ?? "Passenger",
       email: p.email ?? "",
-      lat: Number(p.latitude),
-      lng: Number(p.longitude),
+      phone: p.phone ?? p.phone_number ?? p.mobile ?? null,
+      pickup_location_name: p.pickup_location_name ?? p.pickup_location ?? null,
+      lat: Number(p.latitude ?? p.lat ?? p.last_known_latitude),
+      lng: Number(p.longitude ?? p.lng ?? p.last_known_longitude),
     }))
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
 
@@ -331,24 +365,108 @@ function renderPassengerMarkers() {
   if (countEl) countEl.textContent = String(cachedPassengers.length);
 }
 
-function rankPassengers() {
+async function rankPassengers() {
   if (!Number.isFinite(driverLat) || !Number.isFinite(driverLng)) return [];
-  const origin = { lat: driverLat, lng: driverLng };
 
-  return cachedPassengers
-    .map((p) => ({
+  /* Step 1: Compute baseline route (driver → campus) */
+  let baselineRoute = null;
+  let baselineDurationMin = 0;
+  let baselineDistanceKm = 0;
+
+  try {
+    const routes = await osrmRoute([
+      { lat: driverLat, lng: driverLng },
+      { lat: CAMPUS_LAT, lng: CAMPUS_LNG }
+    ]);
+    if (routes.length > 0) {
+      baselineRoute = routes[0];
+      baselineDurationMin = baselineRoute.duration / 60;
+      baselineDistanceKm = baselineRoute.distance / 1000;
+      console.log(`[Baseline] Driver → Campus: ${baselineDistanceKm.toFixed(1)}km / ${baselineDurationMin.toFixed(1)}min`);
+    }
+  } catch (err) {
+    console.warn("Failed to compute baseline route:", err);
+    return [];
+  }
+
+  if (!baselineRoute) return [];
+  const baselineCoords = baselineRoute.geometry.coordinates.map(c => [c[1], c[0]]);
+
+  /* Step 2: Score each passenger based on detour */
+  const scoredPassengers = [];
+  const skippedPassengers = [];
+
+  for (const p of cachedPassengers) {
+    /* Filter 1: Is passenger within 2km of driver's baseline route? */
+    const distFromRoute = distToPolyline(p.lat, p.lng, baselineCoords);
+    if (distFromRoute > 2.0) {
+      skippedPassengers.push({
+        ...p,
+        distanceFromRoute: distFromRoute,
+        score: 100 // Red color (invalid match)
+      });
+      continue;
+    }
+
+    /* Calculate detour: driver → passenger → campus */
+    let timeDetourPct = 0;
+    let distanceDetourPct = 0;
+    let pickupDurationMin = null;
+    let pickupDistanceKm = null;
+
+    try {
+      const detourRoutes = await osrmRoute([
+        { lat: driverLat, lng: driverLng },
+        { lat: p.lat, lng: p.lng },
+        { lat: CAMPUS_LAT, lng: CAMPUS_LNG }
+      ]);
+      if (detourRoutes.length > 0) {
+        const detourRoute = detourRoutes[0];
+        pickupDurationMin = detourRoute.duration / 60;
+        pickupDistanceKm = detourRoute.distance / 1000;
+
+        if (baselineDurationMin > 0) {
+          timeDetourPct = Math.max(0, ((pickupDurationMin - baselineDurationMin) / baselineDurationMin) * 100);
+        }
+        if (baselineDistanceKm > 0) {
+          distanceDetourPct = Math.max(0, ((pickupDistanceKm - baselineDistanceKm) / baselineDistanceKm) * 100);
+        }
+
+        console.log(`[Detour] ${p.name}: baseline ${baselineDistanceKm.toFixed(1)}km/${baselineDurationMin.toFixed(1)}min → with pickup ${pickupDistanceKm.toFixed(1)}km/${pickupDurationMin.toFixed(1)}min → detour ${timeDetourPct.toFixed(0)}% time / ${distanceDetourPct.toFixed(0)}% distance`);
+      }
+    } catch (err) {
+      console.warn(`Failed to compute detour for ${p.name}:`, err);
+      // Continue with zero detour percentages
+    }
+
+    const score = computeMatchScore(timeDetourPct, distanceDetourPct);
+    scoredPassengers.push({
       ...p,
-      kmAway: haversineKm(origin, { lat: p.lat, lng: p.lng }),
-    }))
-    .sort((a, b) => a.kmAway - b.kmAway);
+      kmAway: distFromRoute, // Keep kmAway for backward compatibility
+      score,
+      timeDetourPct,
+      distanceDetourPct,
+      pickupDurationMin,
+      pickupDistanceKm
+    });
+  }
+
+  /* Combine and sort: good matches first (score < 25), then bad matches and skipped */
+  const goodMatches = scoredPassengers.filter(p => p.score < 25);
+  const badMatches = scoredPassengers.filter(p => p.score >= 25);
+
+  goodMatches.sort((a, b) => a.score - b.score);
+  badMatches.sort((a, b) => a.score - b.score);
+
+  return [...goodMatches, ...badMatches, ...skippedPassengers];
 }
 
-function renderPassengerRankList() {
+async function renderPassengerRankList() {
   const rowsEl = $("passengerRankRows");
   const emptyEl = $("passengerRankEmpty");
   if (!rowsEl) return;
 
-  const ranked = rankPassengers();
+  const ranked = await rankPassengers();
   rowsEl.innerHTML = "";
 
   if (ranked.length === 0) {
@@ -357,20 +475,53 @@ function renderPassengerRankList() {
   }
   if (emptyEl) emptyEl.style.display = "none";
 
-  ranked.slice(0, 30).forEach((p) => {
+  /* Display only good matches (score < 25) and skipped passengers (red dots) */
+  const goodMatches = ranked.filter(p => p.score !== undefined && p.score < 25);
+  const badMatches = ranked.filter(p => p.score !== undefined && p.score >= 25);
+  const skippedPassengers = ranked.filter(p => p.distanceFromRoute !== undefined);
+
+  /* Render good match rows in main list */
+  goodMatches.forEach((p, idx) => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "rank-row";
+    
+    /* Color-code badge based on score */
+    let badgeColor = "#16a34a"; // green for score < 15
+    if (p.score >= 15 && p.score < 25) {
+      badgeColor = "#f59e0b"; // orange for 15 <= score < 25
+    }
+    
+    const badgeStyle = `background: ${badgeColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; min-width: 40px; text-align: center;`;
+    
     row.innerHTML = `
       <div class="rank-main">
         <div class="rank-name">${escapeHtml(p.name)}</div>
-        <div class="rank-sub">${p.kmAway.toFixed(2)} km away</div>
+        <div class="rank-sub">${p.pickupDistanceKm ? `${p.pickupDistanceKm.toFixed(1)} km` : p.kmAway ? `${p.kmAway.toFixed(2)} km away` : 'Distance unknown'}</div>
       </div>
-      <div class="rank-meta">${escapeHtml(p.email || "")}</div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="${badgeStyle}">${p.score.toFixed(1)}</div>
+        <div class="rank-meta" style="min-width: 60px; text-align: right;">${escapeHtml(p.email || "")}</div>
+      </div>
     `;
     row.addEventListener("click", () => showPassengerDetails(p));
     rowsEl.appendChild(row);
   });
+
+  /* Show summary if there are bad matches or skipped passengers */
+  if (badMatches.length > 0 || skippedPassengers.length > 0) {
+    const summaryRow = document.createElement("div");
+    summaryRow.style.padding = "12px 16px";
+    summaryRow.style.fontSize = "13px";
+    summaryRow.style.color = "#666";
+    summaryRow.style.borderTop = "1px solid #e0e0e0";
+    summaryRow.innerHTML = `
+      ${goodMatches.length} good match${goodMatches.length !== 1 ? 'es' : ''} shown. 
+      ${badMatches.length > 0 ? `${badMatches.length} more with high detour (${(badMatches[0].score || 0).toFixed(0)}%+)` : ''}
+      ${skippedPassengers.length > 0 ? `${skippedPassengers.length} more too far from your route` : ''}
+    `;
+    rowsEl.appendChild(summaryRow);
+  }
 }
 
 function escapeHtml(s) {
@@ -392,11 +543,41 @@ function showPassengerDetails(p) {
   $("passengerDetailsView").classList.remove("hidden");
 
   $("panelPassengerName").textContent = p.name || "Passenger";
-  $("panelPassengerPhone").textContent = "";
-  $("panelPassengerPhoneLink").href = "#";
-  $("panelPassengerDestination").textContent = p.email || "";
-  $("panelPassengerFit").textContent = "";
-  $("panelRequestNote").textContent = "";
+
+  // Phone (try several common field names)
+  const phone = p.phone || p.phone_number || p.mobile || p.cell || p.contact || p.telephone || p.phoneNumber || p.email || "";
+  const phoneEl = $("panelPassengerPhone");
+  const phoneLinkEl = $("panelPassengerPhoneLink");
+  const callBtn = $("panelCallBtn");
+  if (phoneEl) phoneEl.textContent = phone ? String(phone) : "";
+  if (phoneLinkEl) phoneLinkEl.href = phone ? `tel:${String(phone).replace(/\s+/g, '')}` : '#';
+  if (callBtn) callBtn.href = phone ? `tel:${String(phone).replace(/\s+/g, '')}` : '#';
+
+  // Pickup / destination info (prefer explicit pickup location)
+  $("panelPassengerDestination").textContent = p.pickup_location_name || p.pickup_location || p.email || "";
+  
+  /* Display detour information if available */
+  if (p.score !== undefined) {
+    const distText = p.pickupDistanceKm ? `${p.pickupDistanceKm.toFixed(1)} km` : '—';
+    const timeText = p.pickupDurationMin ? `~${p.pickupDurationMin.toFixed(0)} min` : '—';
+    const scoreColor = p.score < 15 ? '#16a34a' : p.score < 25 ? '#f59e0b' : '#dc2626';
+    
+    $("panelPassengerFit").textContent = `${distText} · ${timeText} · Score: ${p.score.toFixed(1)}`;
+    $("panelPassengerFit").style.color = scoreColor;
+    
+    if (p.timeDetourPct !== undefined && p.distanceDetourPct !== undefined) {
+      const detourText = `Detour: ${p.timeDetourPct.toFixed(0)}% time · ${p.distanceDetourPct.toFixed(0)}% distance`;
+      $("panelRequestNote").textContent = detourText;
+    }
+  } else if (p.distanceFromRoute !== undefined) {
+    // Skipped passenger (too far from route)
+    $("panelPassengerFit").textContent = `Too far from route: ${p.distanceFromRoute.toFixed(1)} km`;
+    $("panelPassengerFit").style.color = '#dc2626';
+    $("panelRequestNote").textContent = 'This passenger is too far from your planned route.';
+  } else {
+    // Fallback (backward compatibility)
+    $("panelPassengerFit").textContent = p.kmAway ? `${p.kmAway.toFixed(2)} km away` : '';
+  }
 }
 
 function backToPassengerList() {
@@ -418,6 +599,94 @@ async function osrmRoute(latlngs) {
   const data = await res.json();
   if (!data || !Array.isArray(data.routes) || data.routes.length === 0) throw new Error("No route found");
   return data.routes;
+}
+
+/* =====================================================================
+   ROUTE ORDERING HELPERS
+   - calculateRouteDistance(points): returns distance in km for an ordered array of {lat,lng}
+   - orderPassengerPickupsNearestFirst(driverStart, passengers): tries all permutations and picks minimal distance
+   - updateRouteWithPassengers(routeId, orderedPassengers): persists stop_points and updated route geometry/distance
+===================================================================== */
+
+async function calculateRouteDistance(points) {
+  // points: [{lat,lng}, ...] - returns distance in km (number)
+  if (!Array.isArray(points) || points.length < 2) return 0;
+  const routes = await osrmRoute(points);
+  if (!routes || routes.length === 0) return Infinity;
+  return (routes[0].distance || 0) / 1000;
+}
+
+function permuteArray(arr) {
+  const results = [];
+  function permute(cur, remaining) {
+    if (remaining.length === 0) {
+      results.push(cur);
+      return;
+    }
+    for (let i = 0; i < remaining.length; i++) {
+      const next = remaining[i];
+      const rest = remaining.slice(0, i).concat(remaining.slice(i + 1));
+      permute(cur.concat([next]), rest);
+    }
+  }
+  permute([], arr);
+  return results;
+}
+
+// Clean, explicit permutation-based ordering (safe override for earlier definitions)
+async function orderPassengerPickupsNearestFirst(driverStart, passengers) {
+  if (!Array.isArray(passengers) || passengers.length === 0) return [];
+  const perms = permuteArray(passengers);
+  let best = null;
+  let bestDist = Infinity;
+  for (const perm of perms) {
+    try {
+      const points = [driverStart, ...perm.map(p => ({ lat: p.lat, lng: p.lng })), { lat: CAMPUS_LAT, lng: CAMPUS_LNG }];
+      const dist = await calculateRouteDistance(points);
+      if (Number.isFinite(dist) && dist < bestDist) {
+        bestDist = dist;
+        best = perm;
+      }
+    } catch (err) {
+      console.warn('[orderPassengerPickupsNearestFirst] perm failed', err);
+    }
+  }
+  const ordered = (best || passengers).map((p, idx) => ({ ...p, order: idx + 1 }));
+  return ordered;
+}
+
+
+async function updateRouteWithPassengers(routeId, orderedPassengers) {
+  // Build stop_points structure and recompute route geometry & metrics, then PATCH the route record.
+  if (!routeId) return;
+  const stop_points = orderedPassengers.map((p, idx) => ({
+    lat: p.lat,
+    lng: p.lng,
+    order_index: idx,
+    ride_request_id: p.ride_request_id,
+    passenger_user_id: p.passenger_user_id,
+    pickup_location_name: p.pickup_location_name || null,
+  }));
+
+  // Compose points for routing: driver start -> pickups -> campus/end depending on tripType
+  const start = tripType === "to_campus" ? { lat: driverLat, lng: driverLng } : CAMPUS;
+  const end = tripType === "to_campus" ? CAMPUS : { lat: driverLat, lng: driverLng };
+  const routePoints = [start, ...orderedPassengers.map(p => ({ lat: p.lat, lng: p.lng })), end];
+
+  try {
+    const routes = await osrmRoute(routePoints);
+    const r = routes && routes[0];
+    const payload = {
+      stop_points,
+      distance_km: r ? Number(((r.distance || 0) / 1000).toFixed(3)) : undefined,
+      duration_min: r ? Number(((r.duration || 0) / 60).toFixed(3)) : undefined,
+      route_geojson: r ? { type: "LineString", coordinates: r.geometry.coordinates } : undefined,
+    };
+    await XANO.updateRoute(Number(routeId), payload);
+    console.log('[updateRouteWithPassengers] Route updated with pickups', payload);
+  } catch (err) {
+    console.error('[updateRouteWithPassengers] Failed to update route:', err);
+  }
 }
 
 function clearRoutePreview() {
@@ -622,7 +891,39 @@ function renderJoinRequests(requests) {
         await XANO.acceptRideRequest(Number(req.id));
         await XANO.logEvent("ride_request_accepted", { ride_request_id: req.id, route_id: req.route_id });
         setStatus("Request accepted", "success");
-        await refreshPublishedRoute();
+
+        // After accepting, recompute optimal pickup order and update the published route with ordered pickups.
+        try {
+          // Fetch the latest requests for this route to get current accepted passengers.
+          const all = await XANO.getRideRequests();
+          const list = Array.isArray(all) ? all : [];
+          const acceptedRequests = list
+            .filter((x) => Number(x.route_id) === Number(publishedRoute?.id))
+            .filter((x) => String(x.status || "").toLowerCase() === "accepted");
+
+          // Build array of pickups with coordinates
+          const pickups = acceptedRequests
+            .map((x) => ({
+              ride_request_id: x.id,
+              passenger_user_id: x.passenger_user_id,
+              lat: Number(x.pickup_lat),
+              lng: Number(x.pickup_lng),
+              pickup_location_name: x.pickup_location_name,
+            }))
+            .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+
+          const driverStart = tripType === "to_campus" ? { lat: driverLat, lng: driverLng } : CAMPUS;
+
+          if (pickups.length > 0) {
+            const ordered = await orderPassengerPickupsNearestFirst(driverStart, pickups);
+            await updateRouteWithPassengers(Number(publishedRoute.id), ordered);
+            // Refresh route after update so UI shows new ordering
+            await refreshPublishedRoute();
+          }
+        } catch (err2) {
+          console.warn('Failed to recompute route after accept:', err2);
+        }
+
         await fetchIncomingRequests();
       } catch (err) {
         setStatus(err.message || "Failed to accept", "error");
@@ -915,7 +1216,7 @@ async function findPassengers() {
   setStatus("Fetching passengers...", "warn");
   try {
     await fetchPassengers();
-    renderPassengerRankList();
+    await renderPassengerRankList();
     setStatus("Passengers loaded", "success");
   } catch (err) {
     setStatus(err.message || "Failed to load passengers", "error");

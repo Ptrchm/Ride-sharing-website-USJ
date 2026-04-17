@@ -2,6 +2,8 @@
 
 const CAMPUS_LAT = 33.8654840;
 const CAMPUS_LNG = 35.5631210;
+const CAMPUS = { lat: CAMPUS_LAT, lng: CAMPUS_LNG };
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving';
 
 let map;
 let routeLine = null;
@@ -10,6 +12,12 @@ let activeAcceptedRide = null;
 let activeRoute = null;
 let role = null; // 'driver' | 'passenger'
 let pollingTimer = null;
+let activeRide = null;
+let isDriver = false;
+let isPassenger = false;
+let driverMarker = null;
+let passengerMarkers = {};
+let campusMarker = null;
 
 function $(id) { return document.getElementById(id); }
 
@@ -73,6 +81,50 @@ function escapeHtml(s) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+/* Recalculate route when passenger is added (OSRM-based detour calculation) */
+function recalculateRouteWithPickup(driverStart, passengerPickup, callback) {
+  // Calculate route: driver start -> passenger pickup -> campus
+  const url = `${OSRM_BASE}/${driverStart.lng},${driverStart.lat};${passengerPickup.lng},${passengerPickup.lat};${CAMPUS_LNG},${CAMPUS_LAT}?overview=full&geometries=geojson`;
+  
+  console.log('[RECALC_ROUTE] Fetching URL:', url);
+  
+  fetch(url)
+    .then(res => {
+      console.log('[RECALC_ROUTE] Response status:', res.status);
+      return res.json();
+    })
+    .then(data => {
+      console.log('[RECALC_ROUTE] Response data:', data);
+      if (data.code !== 'Ok') {
+        console.error('[RECALC_ROUTE] OSRM error:', data.code, data.message);
+        if (callback) callback();
+        return;
+      }
+      
+      const geometry = data.routes[0].geometry;
+      const coords = geometry.coordinates.map(c => [c[1], c[0]]); // Convert [lng,lat] to [lat,lng]
+      
+      const distance = data.routes[0].distance / 1000; // meters to km
+      const duration = data.routes[0].duration / 60; // seconds to minutes
+      
+      console.log('[RECALC_ROUTE] Route calculated - distance:', distance, 'km, duration:', duration, 'min, coords:', coords.length);
+      
+      // Update activeRoute with new coordinates
+      if (activeRoute) {
+        activeRoute.coords = coords;
+        activeRoute.distanceKm = distance;
+        activeRoute.durationMin = duration;
+        console.log('[RECALC_ROUTE] Updated activeRoute:', activeRoute);
+      }
+      
+      if (callback) callback();
+    })
+    .catch(err => {
+      console.error('[RECALC_ROUTE] Fetch error:', err);
+      if (callback) callback();
+    });
 }
 
 function initMap() {
@@ -279,18 +331,46 @@ async function renderPassengersForDriver() {
     const requests = await XANO.getRideRequests();
     const list = Array.isArray(requests) ? requests : [];
 
+    // Filter accepted requests for this active route
     const accepted = list
       .filter((r) => Number(r.route_id) === Number(activeRoute?.id))
-      .filter((r) => String(r.status || '').toLowerCase() === 'accepted')
-      .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      .filter((r) => String(r.status || '').toLowerCase() === 'accepted');
+
+    // If route has stop_points saved (ordered pickups), use that order. Otherwise fallback to id order.
+    let orderedRequests = [];
+    const routeStopPoints = Array.isArray(activeRoute?.stop_points) ? activeRoute.stop_points : null;
+    if (routeStopPoints && routeStopPoints.length > 0) {
+      // Sort stop_points by order_index then map to matching request by ride_request_id
+      const sortedStops = routeStopPoints.slice().sort((a, b) => (Number(a.order_index || 0) - Number(b.order_index || 0)));
+      for (const stop of sortedStops) {
+        const match = accepted.find((r) => Number(r.id) === Number(stop.ride_request_id));
+        if (match) orderedRequests.push({ req: match, stop });
+      }
+      // Append any accepted requests that weren't present in stop_points at the end (preserve some order)
+      const remaining = accepted.filter((r) => !orderedRequests.some((o) => Number(o.req.id) === Number(r.id)));
+      remaining.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      for (const r of remaining) orderedRequests.push({ req: r, stop: null });
+    } else {
+      // Fallback: order by id (old behavior)
+      const sorted = accepted.slice().sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      orderedRequests = sorted.map((r) => ({ req: r, stop: null }));
+    }
 
     setPanelValue('passengerCount', String(accepted.length));
 
-    accepted.forEach((r, idx) => {
+    if (orderedRequests.length === 0) {
+      listEl.innerHTML = '<div class="participant-empty">No passengers yet.</div>';
+      return;
+    }
+
+    orderedRequests.forEach((item, idx) => {
+      const r = item.req;
+      const stop = item.stop;
+      const pickupNumber = stop && (Number(stop.order_index) + 1) ? (Number(stop.order_index) + 1) : (idx + 1);
       const card = document.createElement('div');
       card.className = 'participant-card';
       card.innerHTML = `
-        <span class="participant-label">Pickup #${idx + 1}</span>
+        <span class="participant-label">Pickup #${pickupNumber}</span>
         <div class="participant-details">
           <span class="participant-name">Passenger #${escapeHtml(r.passenger_user_id)}</span>
           <span class="participant-car">${escapeHtml(r.pickup_location_name || '')}</span>
@@ -298,10 +378,6 @@ async function renderPassengersForDriver() {
       `;
       listEl.appendChild(card);
     });
-
-    if (accepted.length === 0) {
-      listEl.innerHTML = '<div class="participant-empty">No passengers yet.</div>';
-    }
   } catch (err) {
     console.log('[My Map] passenger list fetch failed:', err);
     listEl.innerHTML = '<div class="participant-empty">Could not load passengers.</div>';
@@ -349,7 +425,62 @@ function startRide() {
 }
 
 function confirmPickup() {
-  setStatus('Confirm Pickup is not enabled yet.', 'warn');
+  // Placeholder for now, but with route recalculation capability
+  // When integrated with backend, this would:
+  // 1. Find the passenger being picked up
+  // 2. Get their location
+  // 3. Recalculate route through their pickup point
+  // 4. Update UI with new distance/time
+  
+  if (!activeRoute) {
+    setStatus('No active ride to confirm pickup.', 'warn');
+    return;
+  }
+  
+  if (role === 'passenger') {
+    setStatus('Passengers cannot confirm pickups.', 'warn');
+    return;
+  }
+  
+  // Driver-side: Recalculate route if there's a pending passenger request
+  if (activeAcceptedRide?.pickup_lat && activeAcceptedRide?.pickup_lng) {
+    const driverStart = {
+      lat: activeRoute.departure_lat || activeRoute.start_lat || CAMPUS_LAT,
+      lng: activeRoute.departure_lng || activeRoute.start_lng || CAMPUS_LNG
+    };
+    
+    const passengerLocation = {
+      lat: Number(activeAcceptedRide.pickup_lat),
+      lng: Number(activeAcceptedRide.pickup_lng)
+    };
+    
+    setStatus('Recalculating route with pickup...', 'warn');
+    recalculateRouteWithPickup(driverStart, passengerLocation, () => {
+      // Update UI with new route info
+      if (activeRoute.distanceKm) {
+        const distEl = $('distanceValue');
+        if (distEl) distEl.textContent = `${activeRoute.distanceKm.toFixed(1)} km`;
+      }
+      
+      if (activeRoute.durationMin) {
+        const timeEl = $('estTimeValue');
+        if (timeEl) timeEl.textContent = `~${activeRoute.durationMin.toFixed(0)} min`;
+      }
+      
+      // Re-render the route on map
+      if (activeRoute.coords && Array.isArray(activeRoute.coords)) {
+        const geojson = {
+          type: 'LineString',
+          coordinates: activeRoute.coords.map(c => [c[1], c[0]]) // Convert back to [lng,lat]
+        };
+        renderRouteLine(geojson);
+      }
+      
+      setStatus('Pickup confirmed. Route updated.', 'success');
+    });
+  } else {
+    setStatus('Confirm Pickup is not enabled yet.', 'warn');
+  }
 }
 
 function endRide() {
